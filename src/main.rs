@@ -6,6 +6,7 @@
 use clap::Parser;
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
+use regex_cache::RegexCache;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::borrow::Cow::Borrowed;
 use std::fs;
@@ -103,7 +104,21 @@ enum ClassifyResult {
     Quarantine,
 }
 
-fn classify_parsed_mail(msg: &mail_parser::Message) -> ClassifyResult {
+struct Ctx {
+    regex_cache: RegexCache,
+}
+
+fn re_match(ctx: &mut Ctx, haystack: &str, re: &str) -> bool {
+    match ctx.regex_cache.configure(re, |b| b.case_insensitive(true)) {
+        Err(_e) => {
+            eprintln!("Invalid re: \"{re}\" (ignored)");
+            false
+        }
+        Ok(r) => r.is_match(haystack),
+    }
+}
+
+fn classify_parsed_mail(ctx: &mut Ctx, msg: &mail_parser::Message) -> ClassifyResult {
     let from_address = msg
         .header(HeaderName::From)
         .and_then(|v| v.as_address())
@@ -111,12 +126,20 @@ fn classify_parsed_mail(msg: &mail_parser::Message) -> ClassifyResult {
         .and_then(|v| v.get(0))
         .and_then(|v| v.address())
         .unwrap_or("");
+    let subject = msg
+        .header(HeaderName::Subject)
+        .and_then(|v| v.as_text())
+        .unwrap_or("");
+
+    if re_match(ctx, subject, "Täääst") {
+        return ClassifyResult::Quarantine;
+    }
 
     if msg
         .header(HeaderName::Other(Borrowed("X-Mailru-Msgtype")))
         .is_some()
     {
-        if from_address.ends_with("@iscb.org") {
+        if from_address.ends_with("@iscb.org") || from_address.ends_with("@news.arraystar.com") {
             return ClassifyResult::Accept;
         } else {
             return ClassifyResult::Quarantine;
@@ -125,10 +148,10 @@ fn classify_parsed_mail(msg: &mail_parser::Message) -> ClassifyResult {
     ClassifyResult::Accept
 }
 
-fn classify_mail(input: &[u8]) -> ClassifyResult {
+fn classify_mail(ctx: &mut Ctx, input: &[u8]) -> ClassifyResult {
     let r = MessageParser::default().parse(input);
     match r {
-        Some(msg) => classify_parsed_mail(&msg),
+        Some(msg) => classify_parsed_mail(ctx, &msg),
         None => {
             eprintln!("failed to parse message!");
             return ClassifyResult::Accept;
@@ -136,13 +159,17 @@ fn classify_mail(input: &[u8]) -> ClassifyResult {
     }
 }
 
-fn cmd_test(filename: &Path) -> Result<()> {
-    let result = classify_mail(&fs::read(filename)?);
+fn cmd_test(ctx: &mut Ctx, filename: &Path) -> Result<()> {
+    let result = classify_mail(ctx, &fs::read(filename)?);
     dbg!(result);
     Ok(())
 }
 
-fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write) -> Result<()> {
+fn process_client(
+    ctx: &mut Ctx,
+    mut stream_reader: impl BufRead,
+    mut stream_writer: impl Write,
+) -> Result<()> {
     let mut data_read_buffer: Vec<u8> = Vec::with_capacity(4096);
     let data_write_buffer: Vec<u8> = Vec::with_capacity(64);
     let mut writer = Cursor::new(data_write_buffer);
@@ -242,7 +269,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
             'E' => {
                 // println!("XXX SMFIC_BODYEOB");
 
-                let result = classify_mail(&mail_buffer);
+                let result = classify_mail(ctx, &mail_buffer);
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -316,7 +343,7 @@ fn install_signal_handler() {
     }
 }
 
-fn daemon(address: &str) -> Result<()> {
+fn daemon(ctx: &mut Ctx, address: &str) -> Result<()> {
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
         None => {
@@ -340,7 +367,7 @@ fn daemon(address: &str) -> Result<()> {
         let stream: TcpStream = socket.into();
         let reader = BufReader::new(&stream);
         let writer = BufWriter::new(&stream);
-        if let Err(e) = process_client(reader, writer) {
+        if let Err(e) = process_client(ctx, reader, writer) {
             eprintln!("{e}");
         }
         if FLAG_SHUTDOWN.load(Ordering::Relaxed) {
@@ -367,9 +394,14 @@ enum Command {
 
 fn xmain() -> Result<()> {
     let cli = Cli::parse();
+    let mut ctx = Ctx {
+        regex_cache: RegexCache::new(1000),
+    };
     match cli.command {
-        Command::Test { filename } => cmd_test(&filename),
-        Command::Daemon { address } => daemon(&address.unwrap_or("0.0.0.0:7044".to_string())),
+        Command::Test { filename } => cmd_test(&mut ctx, &filename),
+        Command::Daemon { address } => {
+            daemon(&mut ctx, &address.unwrap_or("0.0.0.0:7044".to_string()))
+        }
     }
 }
 
@@ -411,16 +443,14 @@ fn test_write_cursor() {
     writer.write_all(b"abcdefghijklmnopqrstuvwxyz").unwrap();
     let data = &writer.get_ref()[0..writer.position() as usize];
     assert_eq!(data, b"abcdefghijklmnopqrstuvwxyz");
+    let cap = writer.get_ref().capacity();
 
     writer.rewind().unwrap();
     writer.write_all(b"123456").unwrap();
     let data = &writer.get_ref()[0..writer.position() as usize];
     assert_eq!(data, b"123456");
 
-    let len = writer.get_ref().len();
-    let cap = writer.get_ref().capacity();
-    dbg!(len);
-    dbg!(cap);
+    assert!(writer.get_ref().capacity() >= cap);
 }
 
 #[test]
