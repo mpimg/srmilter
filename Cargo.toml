@@ -1,0 +1,11 @@
+[package]
+name = "srmilter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.40", features = ["derive"] }
+mail-parser = "0.11.0"
+nix = { version = "0.30.1", features = ["signal"] }
+socket2 = { version = "0.6.0", features = ["all"] }
+systemd = "0.10.0"

@@ -1,0 +1,2253 @@
+Return-Path: <bounce-158803528926627128a1228385@mlsend.com>
+Received: from mx.molgen.mpg.de (mx.molgen.mpg.de [141.14.17.8])
+	 by tldr.molgen.mpg.de (Cyrus 2.5.3) with LMTPA;
+	 Wed, 02 Jul 2025 14:34:03 +0200
+X-Sieve: CMU Sieve 2.4
+Received: from a1241.mx.srv.dfn.de (a1241.mx.srv.dfn.de [194.95.232.62])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mx2.molgen.mpg.de (Postfix) with ESMTPS id 9974F61E64844
+	for <vingron@molgen.mpg.de>; Wed, 02 Jul 2025 11:02:48 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at mgw6-han.srv.dfn.de
+X-Spam-Flag: NO
+X-Spam-Score: 2.646
+X-Spam-Level: **
+X-Spam-Status: No, score=2.646 tagged_above=2 required=6.2
+ tests=[BAYES_50=0.1, BOGO_UNSURE=0.1, BOTE_UNSURE=0.01, BT_50=0.01,
+ DKIMWL_WL_MED=-0.001, DKIM_SIGNED=0.1, DKIM_VALID=-0.01, DKIM_VALID_AU=-0.01,
+ DKIM_VALID_EF=-0.01, DMARC_PASS=-0.01, HEADER_FROM_DIFFERENT_DOMAINS=0.017,
+ HTML_MESSAGE=0.001, RCVD_DOUBLE_IP_LOOSE=1.012, RCVD_IN_BL_SPAMCOP_NET=1.347,
+ RCVD_IN_MSPIKE_H2=-0.01, SPF_HELO_NONE=0.01, SPF_PASS=-0.01]
+ autolearn=disabled
+Authentication-Results: mgw6-han.srv.dfn.de (amavis); dkim=pass (1024-bit key)
+ header.d=iscb.org header.b="FUfVu+pi"; dkim=pass (1024-bit key)
+ header.d=mlsend.com header.b="In1U59sO"
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=185.225.161.10; helo=mail010.mlsend.com; envelope-from=bounce-158803528926627128a1228385@mlsend.com; receiver=<UNKNOWN> 
+Received: from mail010.mlsend.com (mail010.mlsend.com [185.225.161.10])
+	by a1241.mx.srv.dfn.de (Postfix) with ESMTPS id 8D0C932012C
+	for <vingron@molgen.mpg.de>; Wed,  2 Jul 2025 11:02:46 +0200 (CEST)
+DKIM-Signature: a=rsa-sha256; bh=gswZ9OJdML5rYV8VRBT8mB8YZc7p6dp57DbaMnEwZ5o=;
+ c=relaxed/relaxed; d=iscb.org;
+ h=DKIM-Signature:X-Mailer-Info:Subject:From:To:Date:Received:Message-ID:x-mailer-recipientid:Feedback-ID:List-Unsubscribe-Post:List-Unsubscribe:Precedence:X-Mailru-Msgtype:X-CampaignID:Reply-To:MIME-Version:Content-Type;
+ s=litesrv; t=1751446933; v=1;
+ b=FUfVu+pibfOTHMxOiXRA2bxSyOIRmgMMU+2OEqBHhLn7kWHramek7w1lktn5lOPdNalGPOy3
+ HZDfMsQZq/CR0X5uBr7ZwqQmAfStvmiuOuEA5Ic/N3OIcHQvoYK4Yq6V4eL8yvdqnxGkk4gNt3a
+ 5vHvdnQPn6bprCaVR33dAA0o=
+DKIM-Signature: a=rsa-sha256; bh=gswZ9OJdML5rYV8VRBT8mB8YZc7p6dp57DbaMnEwZ5o=;
+ c=relaxed/relaxed; d=mlsend.com;
+ h=X-Mailer-Info:Subject:From:To:Date:Received:Message-ID:x-mailer-recipientid:Feedback-ID:List-Unsubscribe-Post:List-Unsubscribe:Precedence:X-Mailru-Msgtype:X-CampaignID:Reply-To:MIME-Version:Content-Type;
+ s=litesrv; t=1751446933; v=1;
+ b=In1U59sOHnrIZqxwnwk4pk+R3XI4Brfxr5+Z2JPuyquDWe6S4qSd8xdZtZJOFXl4CEFnD/P7
+ 62vMwp1sPSVNc7wg0dhy1uPfUVQp3MKxsDj0QoeKqI26DqtRdTHgYoPKBYVJosfnZ9xJZVCDE0K
+ RrDVZdvine7hyW1TwLt5VUa8=
+X-Mailer-Info: 10.MWYtBXYpdmb.MWYtBXYpdmbxUDOzcDNzkjM0MjMxYjN0UDM.2lmbnJ3buBU
+ bvx2Zl5mLtB3ZuQWZ.ETN4gDMzUjM4kjM2YjM3EjM4EWMyIDOzgTN....
+Subject: ISCB Career Compass: July 2025
+From: ISCB Career Compass <announcements@iscb.org>
+To: "vingron@molgen.mpg.de" <vingron@molgen.mpg.de>
+Date: 02 Jul 2025 09:02:12 -0000
+Received: from 10.36.59.199 by 10.164.0.44 with http; 02 Jul 2025 09:02:12 +0000
+Message-ID: <158803528926627128a1228385@mlsend.com>
+x-mailer-recipientid: 158803528926627128a1228385
+Feedback-ID: campaign158374392416437809:1228385:campaign:MailerLite
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+List-Unsubscribe: <https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzg1MDcyMDU1LFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZmMzMWFlYzJhODdiZTlkOSJ9>
+Precedence: bulk
+X-Mailru-Msgtype: 158803528926627128
+X-CampaignID: 158374392432166450
+Reply-To: ISCB Career Compass <admin@iscb.org>
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="==c941b117e9a2f7cd6790c3d510ec82ad"
+
+This is a multi-part message in MIME format.
+
+--==c941b117e9a2f7cd6790c3d510ec82ad
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello,
+
+You have received a newsletter from The International Society for Comput=
+ational Biology.
+
+However, your email software can't display HTML emails. You can view the=
+ newsletter by clicking here:
+
+https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsX=
+CI6MTU4ODAzNTAyNDIxNzcyMjMxLFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiO=
+DllYWJkOWVkNjVlMjU5NyJ9
+
+
+
+You're receiving this newsletter because you have shown interest in The =
+International Society for Computational Biology.
+Not interested anymore? Click here to unsubscribe:
+https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsX=
+CI6MTU4ODAzNTAyNDE2NTI5MzQ4LFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiY=
+TJmOGZlOGVlNjgyYjk0MiJ9
+
+--==c941b117e9a2f7cd6790c3d510ec82ad
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<!doctype html>
+<html lang dir=3D"ltr" xmlns:o=3D"urn:schemas-microsoft-com:office:offic=
+e" xmlns:v=3D"urn:schemas-microsoft-com:vml"><head>
+    <meta charset=3D"utf-8">
+   =20
+    <meta http-equiv=3D"X-UA-Compatible" content=3D"IE=3Dedge">
+    <meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-sca=
+le=3D1, user-scalable=3Dyes">
+    <meta name=3D"format-detection" content=3D"telephone=3Dno, date=3Dno=
+, address=3Dno, email=3Dno, url=3Dno">
+    <meta name=3D"x-apple-disable-message-reformatting">
+    <!--[if !mso]>
+    <meta http-equiv=3D"X-UA-Compatible" content=3D"IE=3Dedge">
+    <![endif]-->
+    <!--[if mso]>
+    <style>
+        * { font-family: sans-serif !important; }
+    </style>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type=3D"text/css">
+        /* Outlines the grids, remove when sending */
+        /*table td { border: 1px solid cyan; }*/
+        /* RESET STYLES */
+        html, body { margin: 0 !important; padding: 0 !important; width:=
+ 100% !important; height: 100% !important; }
+        body { -webkit-font-smoothing: antialiased; -moz-osx-font-smooth=
+ing: grayscale; text-rendering: optimizeLegibility;}
+        .document { margin: 0 !important; padding: 0 !important; width: =
+100% !important; }
+        img { border: 0; outline: none; text-decoration: none;  -ms-inte=
+rpolation-mode: bicubic; }
+        table { border-collapse: collapse; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-si=
+ze-adjust: 100%; }
+        h1, h2, h3, h4, h5, p { margin:0; word-break: break-word;}
+        /* iOS BLUE LINKS */
+        a[x-apple-data-detectors] {
+            color: inherit !important;
+            text-decoration: none !important;
+            font-size: inherit !important;
+            font-family: inherit !important;
+            font-weight: inherit !important;
+            line-height: inherit !important;
+        }
+        /* ANDROID CENTER FIX */
+        div[style*=3D"margin: 16px 0;"] { margin: 0 !important; }
+        /* MEDIA QUERIES */
+        @media all and (max-width:639px){
+            .wrapper{ width:100%!important; }
+            .container{ width:100%!important; min-width:100%!important; =
+padding: 0 !important; }
+            .row{padding-left: 20px!important; padding-right: 20px!impor=
+tant;}
+            .col-mobile {width: 20px!important;}
+            .table-between-col-mobile {width:100%!important;}
+            .col{display: block!important; width: 100%!important;}
+            .col-feature{display: block!important; width: 100%!important=
+;}
+            .mobile-center{text-align: center!important; float: none!imp=
+ortant;}
+            .mobile-mx-auto {margin: 0 auto!important; float: none!impor=
+tant;}
+            .mobile-left{text-align: center!important; float: left!impor=
+tant;}
+            .mobile-hide{display: none!important;}
+            .img{ width:100% !important; height:auto !important; }
+            .ml-btn { width: 100% !important; max-width: 100%!important;=
+}
+            .ml-btn-container { width: 100% !important; max-width: 100%!=
+important;}
+            *[class=3D"mobileOff"] { width: 0px !important; display: non=
+e !important; }
+            *[class*=3D"mobileOn"] { display: block !important; max-heig=
+ht:none !important; }
+            .mlContentTable{ width: 100%!important; min-width: 10%!impor=
+tant; margin: 0!important; float: none!important; }
+            .mlContentButton a { display: block!important; width: auto!i=
+mportant; }
+            .mlContentOuter { padding-bottom: 0px!important; padding-lef=
+t: 15px!important; padding-right: 15px!important; padding-top: 0px!impor=
+tant; }
+            .mlContentSurvey { float: none!important; margin-bottom: 10p=
+x!important; width:100%!important; }
+            .multiple-choice-item-table { width: 100% !important; min-wi=
+dth: 10% !important; float: none !important; }
+            .ml-default, .ml-card, .ml-fullwidth { width: 100%; min-widt=
+h: 100%; }
+        }
+
+        @media screen and (max-width: 600px) {
+            .col-feature {
+                margin-bottom: 30px;
+            }
+        }
+
+        /* Carousel style */
+        @media screen and (-webkit-min-device-pixel-ratio: 0) {
+            .webkit {
+                display: block !important;
+            }
+        }  @media screen and (-webkit-min-device-pixel-ratio: 0) {
+            .non-webkit {
+                display: none !important;
+            }
+        }  @media screen and (-webkit-min-device-pixel-ratio: 0) {
+            /* TARGET OUTLOOK.COM */
+            [class=3D"x_non-webkit"] {
+                display: block !important;
+            }
+        }  @media screen and (-webkit-min-device-pixel-ratio: 0) {
+            [class=3D"x_webkit"] {
+                display: none !important;
+            }
+        }
+    </style>
+   =20
+    <style type=3D"text/css">@import url("https://assets.mlcdn.com/fonts=
+-v2.css?version=3D1750852");</style>
+<style type=3D"text/css">
+            @media screen {
+                body {
+                    font-family: 'Inter', sans-serif;
+                }
+            }
+        </style><meta name=3D"robots" content=3D"noindex, nofollow">
+<title>ISCB Career Compass: July 2025</title>
+</head>
+<body style=3D"margin: 0 !important; padding: 0 !important; background-c=
+olor:#ffffff;">
+
+   =20
+       =20
+       =20
+   =20
+
+   =20
+
+       =20
+           =20
+
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+
+           =20
+       =20
+
+       =20
+           =20
+
+           =20
+       =20
+
+   =20
+
+   =20
+
+       =20
+
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+           =20
+       =20
+
+       =20
+
+           =20
+               =20
+               =20
+               =20
+               =20
+               =20
+           =20
+
+           =20
+               =20
+               =20
+               =20
+           =20
+
+           =20
+               =20
+               =20
+               =20
+               =20
+               =20
+           =20
+
+           =20
+               =20
+               =20
+               =20
+               =20
+               =20
+           =20
+
+           =20
+               =20
+               =20
+               =20
+               =20
+               =20
+           =20
+
+           =20
+               =20
+               =20
+               =20
+               =20
+           =20
+
+           =20
+               =20
+               =20
+           =20
+
+           =20
+               =20
+               =20
+           =20
+
+       =20
+   =20
+
+    <div class=3D"document" role=3D"article" aria-roledescription=3D"ema=
+il" aria-label lang dir=3D"ltr" style=3D"background-color:#ffffff; line-=
+height: 100%; font-size:medium; font-size:max(16px, 1rem);">
+
+        <!--[if gte mso 9]>
+        <v:background xmlns:v=3D"urn:schemas-microsoft-com:vml" fill=3D"=
+t" if=3D"variable.bodyBackgroundImage.value">
+            <v:fill type=3D"tile" src=3D"" color=3D"#ffffff"/>
+        </v:background>
+        <![endif]-->
+
+       =20
+
+        <table width=3D"100%" align=3D"center" cellspacing=3D"0" cellpad=
+ding=3D"0" border=3D"0">
+            <tr>
+                <td class background bgcolor=3D"#ffffff" align=3D"center=
+" valign=3D"top" style=3D"padding: 0 8px;">
+
+                    <table class=3D"container" align=3D"center" width=3D=
+"640" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"max-widt=
+h: 640px;">
+    <tr>
+        <td align=3D"center">
+           =20
+        </td>
+    </tr>
+</table>
+
+
+                    <table width=3D"640" class=3D"wrapper" align=3D"cent=
+er" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"
+                        max-width: 640px;
+                        border:1px solid #ffffff;
+                        border-radius:8px; border-collapse: separate!imp=
+ortant; overflow: hidden;
+                        ">
+                        <tr>
+                            <td align=3D"center">
+
+                               =20
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-4 ml-default-border" width=3D=
+"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D"0=
+" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"20" style=3D"line-height: 20px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td>
+
+   =20
+   =20
+
+   =20
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D=
+"100%">
+            <tr>
+                <td class=3D"row" style=3D"padding: 0 50px; line-height:=
+ 1;" align=3D"center">
+                   =20
+                        <a href=3D"https://pmbxep.clicks.mlsend.com/ty/c=
+l/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMjkwNzAwMTU2LFwiclwiOj=
+E1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZjY2MmVlNjVkYzk0YmE0NiJ9" target=3D"_b=
+lank" style=3D"text-decoration: none;" data-link-id=3D"15880350229070015=
+6">
+                                <img src=3D"https://storage.mlcdn.com/ac=
+count_image/1228385/aLcfA4t6Ny02zwem1344Xmkf4GTOpcLLC7oaW8LK.png" loadin=
+g=3D"lazy" border=3D"0" alt width=3D"540" class=3D"img" style=3D"display=
+: block;">
+                            </a>
+                   =20
+                </td>
+            </tr>
+        </table>
+   =20
+   =20
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"30" style=3D"line-height: 30px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-6 ml-default-border" width=3D=
+"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D"0=
+" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-8 ml-default-border" width=3D=
+"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D"0=
+" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-10 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"color: #000000; width: 640px; min-width: =
+640px;">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"20" style=3D"line-height: 20px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td class=3D"row" style=3D"padding: 0 50px;">
+
+   =20
+    <h2 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-=
+size: 24px; line-height: 125%; font-weight: bold; font-style: normal; te=
+xt-decoration: none; ;margin-bottom: 10px;">In this issue:</h2>
+<p style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size:=
+ 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;"><strong><=
+span style=3D"color: rgb(29, 47, 90);">Explore</span> <span style=3D"col=
+or: rgb(29, 47, 90);">Opportunities With the ISCB Career Center</span></=
+strong></p>
+<p style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size:=
+ 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;"><strong>Arti=
+cle:&nbsp;<span style=3D"color: rgb(29, 47, 90);">Build an Online Presen=
+ce That Reflects Your&nbsp;Personal Brand</span></strong></p>
+
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"20" style=3D"line-height: 20px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-12 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-14 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-16 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"color: #000000; width: 640px; min-width: =
+640px;">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"20" style=3D"line-height: 20px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td class=3D"row" style=3D"padding: 0 50px;">
+
+   =20
+    <h2 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-=
+size: 24px; line-height: 125%; font-weight: bold; font-style: normal; te=
+xt-decoration: none; ;margin-bottom: 10px;"><span style=3D"color: rgb(29=
+, 47, 90);">Explore Opportunities With the ISCB Career Center</span><br>=
+</h2>
+<p style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size:=
+ 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;">Navigatin=
+g the bioinformatics job market can be challenging, whether you=E2=80=99=
+re seeking new opportunities or looking to recruit qualified candidates.=
+ The ISCB Career Center is a dedicated platform to search for positions,=
+ post openings, and maintain an up-to-date CV for employers to discover.=
+ ISCB members receive complimentary job postings and CV uploads, while n=
+on-members can participate for a nominal fee.&nbsp;</p>
+<p style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size:=
+ 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">If you=E2=80=
+=99re attending <span class=3D"ml-rte-link-wrapper"><a href=3D"https://p=
+mbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4OD=
+AzNTAyMjk4MDQwMTkzLFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZTgxNTQzZW=
+JkNmE0YzcwMyJ9" target=3D"_blank" style=3D"color: #007bff; font-weight: =
+normal; font-style: normal; text-decoration: underline;" data-link-id=3D=
+"158803502298040193">ISMB/ECCB 2025</a></span>, plan to take advantage o=
+f the <span class=3D"ml-rte-link-wrapper"><a href=3D"https://pmbxep.clic=
+ks.mlsend.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzA2=
+NDI4ODA1LFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiMzdhNGZkODY4MWE1YWU0=
+NiJ9" target=3D"_blank" style=3D"color: #007bff; font-weight: normal; fo=
+nt-style: normal; text-decoration: underline;" data-link-id=3D"158803502=
+306428805">Career Fair</a></span> on Sunday, July 20th, from 4 pm to 6 p=
+m in the Exhibition Area. Attendees can meet recruiters in person, explo=
+re the digital jobs board, and identify participating institutions in th=
+e exhibit hall. Please note that uploading your resume to the ISCB Caree=
+r Center is required to participate in the Career Fair and to receive a =
+=E2=80=98Talent=E2=80=99 ribbon for&nbsp;your badge. Additional sign-up =
+will be available on-site at the conference<strong>&nbsp;</strong>regist=
+ration desk.</p>
+
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"20" style=3D"line-height: 20px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-18 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"20" style=3D"line-height: 20px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td class=3D"row mobile-center" align=3D"center"=
+ style=3D"padding: 0 50px;">
+
+   =20
+   =20
+   =20
+
+   =20
+   =20
+   =20
+   =20
+
+    <table class=3D"ml-btn-container" cellpadding=3D"0" cellspacing=3D"0=
+" border=3D"0" align=3D"center" width=3D"auto">
+    <tr>
+        <td align=3D"center" valign=3D"middle">
+           =20
+           =20
+           =20
+           =20
+            <!-- Primary button starting -->
+            <div>
+                <!--[if mso]>
+                <v:roundrect xmlns:v=3D"urn:schemas-microsoft-com:vml" x=
+mlns:w=3D"urn:schemas-microsoft-com:office:word" href=3D"https://careers=
+.iscb.org/jobs" target=3D"_blank"
+                         style=3D"width: 165px;
+                         v-text-anchor:middle;" arcsize=3D"12%" stroke=3D=
+"f" strokecolor=3D"#000000" strokeweight=3D"2px">
+                    <v:fill color=3D"#1d2f5a" opacity=3D"100%"/>
+                    <w:anchorlock/>
+                    <v:shadow on=3D"f" color=3D"#000000" offset=3D"0px 2=
+px 0px 0px"></v:shadow>
+                    <v:textbox inset=3D"25px,14px,25px,14px" style=3D"ms=
+o-fit-shape-to-text:true;">
+                        <center>
+                            <span style=3D"font-family:sans-serif;color:=
+#ffffff;font-size:14px;line-height:14px;mso-line-height-rule:exactly;fon=
+t-weight: normal; font-style: normal; text-decoration: none;">
+                                <div><strong>Search for Jobs</strong><br=
+></div>
+                            </span>
+                        </center>
+                    </v:textbox>
+                </v:roundrect>
+                <![endif]-->
+            </div>
+            <!-- Primary button ending -->
+           =20
+           =20
+           =20
+            <!-- Secondary button start -->
+           =20
+            <!-- Secondary button end -->
+
+            <!-- Desktop button start -->
+           =20
+                        <!--[if !mso]>-->
+                            <table class=3D"ml-btn ml-btn-primary ml-btn=
+-filled" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"presen=
+tation" style=3D"border-collapse: separate; width: auto;">
+                    <tr>
+                        <th align=3D"center" valign=3D"middle" style=3D"=
+background-color: #1d2f5a; border-radius: 6px; mso-padding-top-alt: 14px=
+; mso-padding-bottom-alt: 14px; mso-padding-left-alt: 25px; mso-padding-=
+right-alt: 25px; -webkit-font-smoothing: auto; word-break: break-all;">
+                            <!-- Firefox fix -->
+                           =20
+                            <!-- /Firefox fix -->
+
+                            <a href=3D"https://pmbxep.clicks.mlsend.com/=
+ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzEyNzIwMjY1LFwicl=
+wiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiYmIzY2VlZWE4YThiZTE2MiJ9" target=3D=
+"_blank" style=3D"display: block; padding: 14px 25px; font-family: 'Inte=
+r', sans-serif; color: #ffffff; font-size: 14px; letter-spacing: 0.025em=
+; text-decoration: none; border-radius: 6px; line-height: 16px; mso-line=
+-height-rule: at-least; word-wrap: break-word; word-break: break-word; o=
+verflow-wrap: break-word; min-width: 70px; font-weight: normal; font-sty=
+le: normal;" data-link-id=3D"158803502312720265">
+                                <div><strong>Search for Jobs</strong><br=
+></div>
+                            </a>
+                        </th>
+                    </tr>
+                </table>
+                        <!--<![endif]-->
+                        <!-- Desktop button end -->
+        </td>
+    </tr>
+</table>
+
+
+
+
+
+
+   =20
+
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+
+
+
+   =20
+
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"20" style=3D"line-height: 20px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-20 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-22 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-24 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"color: #515856; width: 640px; min-width: =
+640px;">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"10" style=3D"line-height: 10px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td class=3D"row" style=3D"padding: 0 50px;">
+
+   =20
+    <h1 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-=
+size: 36px; line-height: 125%; font-weight: bold; font-style: normal; te=
+xt-decoration: none; ;margin-bottom: 10px; margin-bottom: 0; text-align:=
+ center;"><span style=3D"color: rgb(29, 47, 90);">Build an Online Presen=
+ce That Reflects Your Personal Brand</span></h1>
+
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"20" style=3D"line-height: 20px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-26 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"color: #000000; width: 640px; min-width: =
+640px;">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"20" style=3D"line-height: 20px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td class=3D"row" style=3D"padding: 0 50px;">
+
+   =20
+    <p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #00=
+0000; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: =
+10px;">In today=E2=80=99s job market, your online presence is often your=
+ first impression=E2=80=94and sometimes your most important one. Whether=
+ you're actively job searching or just building visibility in your field=
+, a strong digital presence helps you communicate your value, connect wi=
+th others, and grow your career. This month, we're sharing practical way=
+s to align your personal brand with your online identity.</p>
+<h3 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size=
+: 18px; line-height: 125%; font-weight: bold; font-style: normal; text-d=
+ecoration: none; ;margin-bottom: 8px;"><span style=3D"color: rgb(29, 47,=
+ 90);"><br><strong></strong><strong>Know What You Want to Be Known For</=
+strong></span></h3>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">Before you start building or refreshing your online presence, take ti=
+me to clarify your  <a href=3D"https://pmbxep.clicks.mlsend.com/ty/cl/ey=
+J2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzIxMTA4ODc5LFwiclwiOjE1OD=
+gwMzUyODkyNjYyNzEyOH0iLCJzIjoiZTE5NDQ1ZThmOGZkYzEzZiJ9" style=3D"color: =
+#007bff; font-weight: normal; font-style: normal; text-decoration: under=
+line;" data-link-id=3D"158803502321108879">personal brand</a>. Your pers=
+onal brand is the thread that ties together your strengths, values, and =
+career goals, and when it's clearly defined, it helps you show up online=
+ with purpose and consistency.</p>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">Start by asking yourself:</p>
+<ul style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size=
+: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;"><li dir=3D=
+"ltr"><p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #=
+000000; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom=
+: 0;">What are your core strengths?</p></li><li dir=3D"ltr"><p dir=3D"lt=
+r" style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size:=
+ 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">What kind of=
+ work energizes you or aligns with your goals?</p></li><li dir=3D"ltr"><=
+p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000;=
+ font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">W=
+hat do colleagues come to you for?</p></li></ul>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">Your answers can help shape a strong <a href=3D"https://pmbxep.clicks=
+.mlsend.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzI4ND=
+Q4OTE1LFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZWM2MmE2NWRkZTUzYjNmYy=
+J9" style=3D"color: #007bff; font-weight: normal; font-style: normal; te=
+xt-decoration: underline;" data-link-id=3D"158803502328448915">professio=
+nal narrative</a>, which in turn informs how you write your bios, highli=
+ght achievements, and engage across digital platforms. The clearer your =
+personal brand, the more effective your online presence will be in helpi=
+ng you stand out and connect with the right opportunities.</p>
+<h3 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size=
+: 18px; line-height: 125%; font-weight: bold; font-style: normal; text-d=
+ecoration: none; ;margin-bottom: 8px;"></h3>
+<h3 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size=
+: 18px; line-height: 125%; font-weight: bold; font-style: normal; text-d=
+ecoration: none; ;margin-bottom: 8px;"><strong><span style=3D"color: rgb=
+(29, 47, 90);">Start With a Solid LinkedIn Profile</span></strong></h3>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">For many professionals, LinkedIn is the most valuable platform for jo=
+b searching and networking. But with over a billion members, it takes mo=
+re than just showing up to stand out.</p>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">Here are few ways to refresh your profile:</p>
+<ul style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size=
+: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;"><li dir=3D=
+"ltr"><p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #=
+000000; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom=
+: 0;">Use a headline and summary that reflect your goals, not just your =
+current title. If you need inspiration, try adapting your <a href=3D"htt=
+ps://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6=
+MTU4ODAzNTAyMzMzNjkxNzk2LFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiNmQ3=
+MGZlNWQxNDc1OGRjYiJ9" style=3D"color: #007bff; font-weight: normal; font=
+-style: normal; text-decoration: underline;" data-link-id=3D"15880350233=
+3691796">elevator pitch</a>!</p></li><li dir=3D"ltr"><p dir=3D"ltr" styl=
+e=3D"font-family: 'Inter', sans-serif; color: #000000; font-size: 16px; =
+line-height: 165%; margin-top: 0; margin-bottom: 0;">Highlight the skill=
+s, experiences, and values that define your personal brand.</p></li><li =
+dir=3D"ltr"><p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; co=
+lor: #000000; font-size: 16px; line-height: 165%; margin-top: 0; margin-=
+bottom: 0;">Add relevant projects, publications, or achievements that sh=
+owcase your impact.</p></li></ul>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">Think of LinkedIn as your digital front door. A clear, compelling pro=
+file helps visitors quickly understand who you are and what you bring to=
+ the table.<br><br></p>
+<h3 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size=
+: 18px; line-height: 125%; font-weight: bold; font-style: normal; text-d=
+ecoration: none; ;margin-bottom: 8px;"><span style=3D"color: rgb(29, 47,=
+ 90);"><strong>Extend Your Reach Strategically</strong></span><br></h3>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">Once your LinkedIn profile reflects your professional brand, consider=
+ how you=E2=80=99re showing up elsewhere online. Employers often look be=
+yond a single platform, so it=E2=80=99s worth taking stock of your broad=
+er digital presence.</p>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;"><strong>Social media: </strong><a href=3D"https://pmbxep.clicks.mlsen=
+d.com/ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzM5OTgzMjU2=
+LFwiclwiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZDVkYTNlYTRiNjUxYTY3NSJ9" st=
+yle=3D"color: #007bff; font-weight: normal; font-style: normal; text-dec=
+oration: underline;" data-link-id=3D"158803502339983256">Review your pro=
+files</a> on platforms like Instagram, Bluesky, Facebook, or X (Twitter)=
+. Make sure public-facing content aligns with your professional identity=
+. If you prefer to keep personal accounts private, adjust your privacy s=
+ettings accordingly.</p>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;"><strong>Personal site or portfolio:</strong> A website or portfolio c=
+an be a powerful way to showcase your work, especially if you're in a de=
+sign-heavy, creative, or public-facing role. Use it to highlight project=
+s, speaking engagements, publications, or case studies.</p>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;"><strong>Research profiles:</strong> Platforms like ORCID, Google Scho=
+lar, and ResearchGate can help improve your visibility in academic space=
+s. Keep these updated and linked to your other profiles for added discov=
+erability.</p>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">Above all,&nbsp;aim for consistency across platforms. A unified bio, =
+photo, and tone across your online presence reinforces your brand and ma=
+kes it easier for others to recognize and remember you.<br></p>
+<h1 dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #00000=
+0; font-size: 36px; line-height: 125%; font-weight: bold; font-style: no=
+rmal; text-decoration: none; ;margin-bottom: 10px;"><span style=3D"color=
+: rgb(29, 47, 90);">Final Thoughts</span></h1>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">=
+Your online presence is more than a digital resume; it=E2=80=99s a refle=
+ction of your professional identity. It=E2=80=99s a chance to show who y=
+ou are, what you care about, and where you=E2=80=99re headed. From your =
+LinkedIn profile to your research pages to the content you engage with, =
+each element helps shape how others see you. Whether job searching or bu=
+ilding visibility, taking the time to align your digital presence with y=
+our personal brand is a smart, strategic move. Start small, stay consist=
+ent, and let your online presence speak to who you are and where you're =
+headed.</p>
+
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"20" style=3D"line-height: 20px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-28 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-30 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-32 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"color: #000000; width: 640px; min-width: =
+640px;">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"20" style=3D"line-height: 20px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td class=3D"row" style=3D"padding: 0 50px;">
+
+   =20
+    <h3 style=3D"font-family: 'Inter', sans-serif; color: #000000; font-=
+size: 18px; line-height: 125%; font-weight: bold; font-style: normal; te=
+xt-decoration: none; ;margin-bottom: 8px;"><span style=3D"color: rgb(29,=
+ 47, 90);">Want Your Job Featured in the Next Career Compass?</span><br>=
+</h3>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">You can get your job featured in the Career Compass newsletter by sel=
+ecting this option when you post a new job!</p>
+<p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000=
+; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px=
+;">To do so, follow these steps:</p>
+<ol style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size=
+: 16px; line-height: 165%; margin-top: 0; margin-bottom: 10px;"><li dir=3D=
+"ltr"><p dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #=
+000000; font-size: 16px; line-height: 165%; margin-top: 0; margin-bottom=
+: 0;">Sign in to the <a href=3D"https://pmbxep.clicks.mlsend.com/ty/cl/e=
+yJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzQ2Mjc0NzE1LFwiclwiOjE1O=
+DgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZTdhMDVmZThlNDVjMDU3OSJ9" style=3D"color:=
+ #007bff; font-weight: normal; font-style: normal; text-decoration: unde=
+rline;" data-link-id=3D"158803502346274715">ISCB Career Center</a>.</p><=
+/li><li dir=3D"ltr"><p dir=3D"ltr" style=3D"font-family: 'Inter', sans-s=
+erif; color: #000000; font-size: 16px; line-height: 165%; margin-top: 0;=
+ margin-bottom: 0;">From your Profile page or My Job Posts page, click t=
+he blue =E2=80=9CPost a Job=E2=80=9D button.</p></li><li dir=3D"ltr"><p =
+dir=3D"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000; f=
+ont-size: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">On =
+the next page, select option 2 that mentions the monthly marketing with =
+Career Compass.</p></li><li dir=3D"ltr"><p dir=3D"ltr" style=3D"font-fam=
+ily: 'Inter', sans-serif; color: #000000; font-size: 16px; line-height: =
+165%; margin-top: 0; margin-bottom: 0;">Complete the required payment fo=
+r the Career Compass upgrade.</p></li><li dir=3D"ltr"><p dir=3D"ltr" sty=
+le=3D"font-family: 'Inter', sans-serif; color: #000000; font-size: 16px;=
+ line-height: 165%; margin-top: 0; margin-bottom: 0;">Fill out your job =
+post details.</p></li><li dir=3D"ltr"><p dir=3D"ltr" style=3D"font-famil=
+y: 'Inter', sans-serif; color: #000000; font-size: 16px; line-height: 16=
+5%; margin-top: 0; margin-bottom: 0;">Click =E2=80=9CSubmit=E2=80=9D to =
+post your job on the ISCB Career Center.</p></li><li dir=3D"ltr"><p dir=3D=
+"ltr" style=3D"font-family: 'Inter', sans-serif; color: #000000; font-si=
+ze: 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;">Keep an e=
+ye out for the next Career Compass newsletter to see your job there, too=
+!</p></li></ol>
+<p style=3D"font-family: 'Inter', sans-serif; color: #000000; font-size:=
+ 16px; line-height: 165%; margin-top: 0; margin-bottom: 0;"><br></p>
+
+   =20
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"20" style=3D"line-height: 20px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-34 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+   =20
+   =20
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-36 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                   =20
+                    <tr>
+                        <td>
+
+   =20
+    <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+    <tr>
+        <td class=3D"row" style=3D"padding: 0 50px;" align=3D"center">
+            <table role=3D"presentation" cellpadding=3D"0" cellspacing=3D=
+"0" border=3D"0" align=3D"center" width=3D"100%">
+                <tr>
+                    <td style=3D"border-top: 2px solid #1d2f5a;"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+   =20
+
+
+
+
+                            </td>
+                    </tr>
+                   =20
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+    <!--  -->
+<table class=3D"ml-default" width=3D"100%" bgcolor border=3D"0" cellspac=
+ing=3D"0" cellpadding=3D"0">
+    <tr>
+        <td style>
+           =20
+
+               =20
+               =20
+
+               =20
+               =20
+
+                <table class=3D"container ml-38 ml-default-border" width=
+=3D"640" bgcolor=3D"#ffffff" align=3D"center" border=3D"0" cellspacing=3D=
+"0" cellpadding=3D"0" style=3D"
+                width: 640px; min-width: 640px;
+                ;
+               =20
+                ">
+                    <tr>
+                        <td class=3D"ml-default-border container" height=
+=3D"40" style=3D"line-height: 40px; min-width: 640px;"></td>
+                    </tr>
+                    <tr>
+                        <td class=3D"row" style=3D"padding: 0 50px;">
+
+
+   =20
+   =20
+
+<table align=3D"center" width=3D"100%" cellpadding=3D"0" cellspacing=3D"=
+0" border=3D"0">
+    <tr>
+        <td class=3D"col" align=3D"left" width=3D"250" valign=3D"top" st=
+yle=3D"text-align: left!important;">
+            <h5 style=3D"font-family: 'Inter', sans-serif; color: #00000=
+0; font-size: 15px; line-height: 125%; font-weight: bold; font-style: no=
+rmal; text-decoration: none; margin-bottom: 6px;"><span style=3D"color: =
+#1d2f5a">The International Society for Computational Biology</span></h5>=
+
+            525-K East Market Street, RM 330, Leesburg<br>United States =
+of America
+
+            <table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" bo=
+rder=3D"0">
+                <tr>
+                    <td height=3D"16" style=3D"line-height: 16px;"></td>=
+
+                </tr>
+                <tr>
+                    <td>
+                       =20
+
+
+
+
+<table class=3D"**$class**" role=3D"presentation" cellpadding=3D"0" cell=
+spacing=3D"0" border=3D"0">
+    <tr>
+        <td align=3D"center" valign=3D"middle" width=3D"22" ng-show=3D"s=
+link.link !=3D ''" style=3D"padding: 0 5px 0 0;">
+            <a href=3D"https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1=
+wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzU0NjYzMzMwLFwiclwiOjE1ODgwMzUyOD=
+kyNjYyNzEyOH0iLCJzIjoiMWQxOGU4NjBjYTFhOTYyMSJ9" target=3D"blank" style=3D=
+"text-decoration: none;" data-link-id=3D"158803502354663330">
+                <img src=3D"https://assets.mlcdn.com/ml/images/icons/def=
+ault/round/color/website.png" width=3D"22" alt=3D"website">
+            </a>
+        </td><td align=3D"center" valign=3D"middle" width=3D"22" ng-show=
+=3D"slink.link !=3D ''" style=3D"padding: 0 5px;">
+            <a href=3D"https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1=
+wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzU5OTA2MjE1LFwiclwiOjE1ODgwMzUyOD=
+kyNjYyNzEyOH0iLCJzIjoiMDU2MTk4OTA4MmY4NDNhNiJ9" target=3D"blank" style=3D=
+"text-decoration: none;" data-link-id=3D"158803502359906215">
+                <img src=3D"https://assets.mlcdn.com/ml/images/icons/def=
+ault/round/color/linkedin.png" width=3D"22" alt=3D"linkedin">
+            </a>
+        </td><td align=3D"center" valign=3D"middle" width=3D"22" ng-show=
+=3D"slink.link !=3D ''" style=3D"padding: 0 5px;">
+            <a href=3D"https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1=
+wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzY1MTQ5MTAxLFwiclwiOjE1ODgwMzUyOD=
+kyNjYyNzEyOH0iLCJzIjoiY2I4MTI4ZWU2MGVhM2UzOSJ9" target=3D"blank" style=3D=
+"text-decoration: none;" data-link-id=3D"158803502365149101">
+                <img src=3D"https://assets.mlcdn.com/ml/images/icons/def=
+ault/round/color/x.png" width=3D"22" alt=3D"x">
+            </a>
+        </td><td align=3D"center" valign=3D"middle" width=3D"22" ng-show=
+=3D"slink.link !=3D ''" style=3D"padding: 0 5px;">
+            <a href=3D"https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1=
+wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzcyNDg5MTM2LFwiclwiOjE1ODgwMzUyOD=
+kyNjYyNzEyOH0iLCJzIjoiMzI3OWYzODljMDhlMWU0NCJ9" target=3D"blank" style=3D=
+"text-decoration: none;" data-link-id=3D"158803502372489136">
+                <img src=3D"https://assets.mlcdn.com/ml/images/icons/def=
+ault/round/color/facebook.png" width=3D"22" alt=3D"facebook">
+            </a>
+        </td><td align=3D"center" valign=3D"middle" width=3D"22" ng-show=
+=3D"slink.link !=3D ''" style=3D"padding: 0 0 0 5px;">
+            <a href=3D"https://pmbxep.clicks.mlsend.com/ty/cl/eyJ2Ijoie1=
+wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzc5ODI5MTcyLFwiclwiOjE1ODgwMzUyOD=
+kyNjYyNzEyOH0iLCJzIjoiZDljM2E5MTk3Y2ViYWRjMyJ9" target=3D"blank" style=3D=
+"text-decoration: none;" data-link-id=3D"158803502379829172">
+                <img src=3D"https://assets.mlcdn.com/ml/images/icons/def=
+ault/round/color/instagram.png" width=3D"22" alt=3D"instagram">
+            </a>
+        </td>
+    </tr>
+</table>
+
+                       =20
+                    </td>
+                </tr>
+            </table>
+        </td>
+        <td class=3D"col" width=3D"40" height=3D"30" style=3D"line-heigh=
+t: 30px;"></td>
+        <td class=3D"col" align=3D"left" width=3D"250" valign=3D"top" st=
+yle=3D"text-align: left!important;">
+           =20
+                <p style=3D"font-family: 'Inter', sans-serif; color: #51=
+5856; font-size: 14px; line-height: 150%; margin-bottom: 6px;">You recei=
+ved this email because you signed up on our website or made a purchase f=
+rom us.</p>
+           =20
+
+            <table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" bo=
+rder=3D"0">
+                <tr>
+                    <td height=3D"8" style=3D"line-height: 8px;"></td>
+                </tr>
+                <tr>
+                    <td align=3D"left">
+                        <p style=3D"font-family: 'Inter', sans-serif; co=
+lor: #515856; font-size: 14px; line-height: 150%; margin-bottom: 0;">
+                            <a href=3D"https://pmbxep.clicks.mlsend.com/=
+ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzg1MDcyMDU1LFwicl=
+wiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZmMzMWFlYzJhODdiZTlkOSJ9" style=3D=
+"color: #515856; font-weight: normal; font-style: normal; text-decoratio=
+n: underline;" data-link-id=3D"158803502385072055" data-link-type=3D"uns=
+ubscribe">Unsubscribe</a>
+                           =20
+                            <span style=3D"padding: 0 5px; mso-padding-l=
+eft-alt:5px; mso-padding-right-alt:5px; text-decoration: none; color: #5=
+15856;">|</span>
+                            <a href=3D"https://pmbxep.clicks.mlsend.com/=
+ty/cl/eyJ2Ijoie1wiYVwiOjEyMjgzODUsXCJsXCI6MTU4ODAzNTAyMzk1NTU3ODIxLFwicl=
+wiOjE1ODgwMzUyODkyNjYyNzEyOH0iLCJzIjoiZWIzYzMxNWVhZjE1M2I5NiJ9" style=3D=
+"color: #515856; font-weight: normal; font-style: normal; text-decoratio=
+n: underline;" data-link-id=3D"158803502395557821" data-link-type=3D"pre=
+ference_center">Update preferences</a>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+
+
+
+
+
+
+
+   =20
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+   =20
+   =20
+
+
+
+   =20
+   =20
+
+
+
+
+
+   =20
+   =20
+   =20
+
+
+
+                            </td>
+                    </tr>
+                    <tr>
+                        <td height=3D"40" style=3D"line-height: 40px;"><=
+/td>
+                    </tr>
+                </table>
+               =20
+                   =20
+                   =20
+               =20
+           =20
+        </td>
+    </tr>
+</table>
+<!--  -->
+
+
+
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table cellpadding=3D"0" cellspacing=3D"0" border=3D=
+"0" align=3D"center" width=3D"640" style=3D"max-width: 640px; width: 100=
+%;">
+   =20
+   =20
+   =20
+</table>
+
+
+                </td>
+            </tr>
+        </table>
+
+    </div>
+
+   =20
+
+   =20
+
+<span style=3D"display:none"><img src=3D"https://pmbxep.clicks.mlsend.co=
+m/ty/o/eyJpdiI6InpaUVhSQmtQdWptRjR3dmtNOVY3Tmc9PSIsInZhbHVlIjoidWpSQUFWR=
+lMvaHhuRWJJM2F5bWd1UDVkWi90YUZqeUsvd2MwTEtzSnVtb0pyVFRhMU1lV0tkR2RIcXZjS=
+U5GQkl5ZXR2UnhNL0s5K2hTQzNpNTB1bzJRMGpIc2VqMHJXb0FEOVg0emVyZlE9IiwibWFjI=
+joiMGEwZDE4NmY3Y2JjZWFiNzA4NDU4NWNiZTdkMTRiMjYzNzhmNjM0ZmQ1ODFlNGFmOTVmY=
+TQ0ZmE5MzNjOWEzYiIsInRhZyI6IiJ9?signature=3D36c8ea97cbc02ddfa938316dc8dc=
+71e732c6ee3716d08f16d87780bba24c7963" width=3D"1" height=3D"1" alt style=
+=3D"display:block;height:0px;width:0px;max-width:0px;max-height:0px;over=
+flow:hidden;" border=3D"0"></span></body>
+</html>
+
+--==c941b117e9a2f7cd6790c3d510ec82ad--
