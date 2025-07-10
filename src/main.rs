@@ -161,8 +161,8 @@ fn process_client(
 
     loop {
         let len = read_u32(&mut stream_reader)?;
-        if len > 10240 {
-            return Err("received line to long".into());
+        if len > 69632 { // 65536+4096 bc. postfix milter8.c : #define MILTER_CHUNK_SIZE 65535 /* body chunk size */
+            return Err("received line to long (len} > 69632".into(), );
         }
         read_bytes(&mut stream_reader, len as usize, &mut data_read_buffer)?;
         let mut data_reader = Cursor::new(data_read_buffer);
