@@ -104,9 +104,15 @@ enum ClassifyResult {
     Quarantine,
 }
 
-struct Ctx {}
 
-fn classify_parsed_mail(_ctx: &mut Ctx, msg: &mail_parser::Message) -> ClassifyResult {
+#[derive(Default)]
+struct Ctx {
+    sender: String,
+    recipients: Vec<String>,
+}
+
+#[allow(unused_variables)]
+fn classify_parsed_mail(ctx: &Ctx, msg: &mail_parser::Message) -> ClassifyResult {
     let from_address = msg
         .header(HeaderName::From)
         .and_then(|v| v.as_address())
@@ -118,6 +124,8 @@ fn classify_parsed_mail(_ctx: &mut Ctx, msg: &mail_parser::Message) -> ClassifyR
         .header(HeaderName::Subject)
         .and_then(|v| v.as_text())
         .unwrap_or("");
+    let sender = &ctx.sender;
+    let recipients = &ctx.recipients;
 
     include!("srmilter.classify.rs");
 
@@ -200,6 +208,7 @@ fn process_client(
             'M' => {
                 let mut from = Vec::new();
                 data_reader.read_to_end(&mut from)?;
+                ctx.sender = String::from_utf8_lossy(&from).to_string();
                 // let from = String::from_utf8_lossy(&from);
                 // println!("XXX SMFIC_MAIL from {from}");
                 // reply disabled with SMFIP_NR_MAIL
@@ -207,6 +216,7 @@ fn process_client(
             'R' => {
                 let mut rcpt = Vec::new();
                 data_reader.read_to_end(&mut rcpt)?;
+                ctx.recipients.push(String::from_utf8_lossy(&rcpt).to_string());
                 // let rcpt = String::from_utf8_lossy(&rcpt);
                 // println!("XXX SMFIC_RCPT rcpt {rcpt}");
                 // reply disabled with SMFIP_NR_RCPT
@@ -370,7 +380,7 @@ enum Command {
 
 fn xmain() -> Result<()> {
     let cli = Cli::parse();
-    let mut ctx = Ctx {};
+    let mut ctx = Ctx:: default();
     match cli.command {
         Command::Test { filename } => cmd_test(&mut ctx, &filename),
         Command::Daemon { address } => {
