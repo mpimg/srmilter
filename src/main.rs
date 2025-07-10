@@ -374,7 +374,11 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Command {
-    Test { filename: PathBuf },
+    Test {
+        filename: PathBuf,
+        sender: Option<String>,
+        recipients: Option<Vec<String>>,
+    },
     Daemon { address: Option<String> },
 }
 
@@ -382,7 +386,12 @@ fn xmain() -> Result<()> {
     let cli = Cli::parse();
     let mut ctx = Ctx:: default();
     match cli.command {
-        Command::Test { filename } => cmd_test(&mut ctx, &filename),
+        Command::Test { filename, sender, recipients } => {
+            ctx.sender = sender.unwrap_or_default();
+            ctx.recipients = recipients.unwrap_or_default();
+            cmd_test(&mut ctx, &filename)
+        },
+
         Command::Daemon { address } => {
             daemon(&mut ctx, &address.unwrap_or("0.0.0.0:7044".to_string()))
         }
