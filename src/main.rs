@@ -284,7 +284,7 @@ fn process_client(
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("accept");
+                        println!("quarantine");
                     }
                 };
                 stream_writer.flush()?;
