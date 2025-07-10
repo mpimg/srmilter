@@ -288,6 +288,9 @@ fn process_client(
                     }
                 };
                 stream_writer.flush()?;
+                mail_buffer.clear();
+                ctx.recipients = Default::default();
+                ctx.sender = Default::default();
             }
             'Q' => {
                 // println!("XXX SMFIC_QUIT");
@@ -297,6 +300,9 @@ fn process_client(
             'A' => {
                 // println!("XXX SMFIC_ABORT");
                 mail_buffer.clear();
+                ctx.recipients = Default::default();
+                ctx.sender = Default::default();
+
                 // no reply to SMFIC_ABORT
             }
             _ => {
