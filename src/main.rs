@@ -104,7 +104,6 @@ enum ClassifyResult {
     Quarantine,
 }
 
-
 #[derive(Default)]
 struct Ctx {
     sender: String,
@@ -216,7 +215,8 @@ fn process_client(
             'R' => {
                 let mut rcpt = Vec::new();
                 data_reader.read_to_end(&mut rcpt)?;
-                ctx.recipients.push(String::from_utf8_lossy(&rcpt).to_string());
+                ctx.recipients
+                    .push(String::from_utf8_lossy(&rcpt).to_string());
                 // let rcpt = String::from_utf8_lossy(&rcpt);
                 // println!("XXX SMFIC_RCPT rcpt {rcpt}");
                 // reply disabled with SMFIP_NR_RCPT
@@ -379,18 +379,24 @@ enum Command {
         sender: Option<String>,
         recipients: Option<Vec<String>>,
     },
-    Daemon { address: Option<String> },
+    Daemon {
+        address: Option<String>,
+    },
 }
 
 fn xmain() -> Result<()> {
     let cli = Cli::parse();
-    let mut ctx = Ctx:: default();
+    let mut ctx = Ctx::default();
     match cli.command {
-        Command::Test { filename, sender, recipients } => {
+        Command::Test {
+            filename,
+            sender,
+            recipients,
+        } => {
             ctx.sender = sender.unwrap_or_default();
             ctx.recipients = recipients.unwrap_or_default();
             cmd_test(&mut ctx, &filename)
-        },
+        }
 
         Command::Daemon { address } => {
             daemon(&mut ctx, &address.unwrap_or("0.0.0.0:7044".to_string()))
