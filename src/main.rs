@@ -4,9 +4,9 @@
 // https://github.com/emersion/go-milter/blob/master/milter-protocol-extras.txt
 
 use clap::Parser;
+use lazy_regex::*;
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
-use regex_cache::RegexCache;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::borrow::Cow::Borrowed;
 use std::fs;
@@ -104,21 +104,9 @@ enum ClassifyResult {
     Quarantine,
 }
 
-struct Ctx {
-    regex_cache: RegexCache,
-}
+struct Ctx {}
 
-fn re_match(ctx: &mut Ctx, haystack: &str, re: &str) -> bool {
-    match ctx.regex_cache.configure(re, |b| b.case_insensitive(true)) {
-        Err(_e) => {
-            eprintln!("Invalid re: \"{re}\" (ignored)");
-            false
-        }
-        Ok(r) => r.is_match(haystack),
-    }
-}
-
-fn classify_parsed_mail(ctx: &mut Ctx, msg: &mail_parser::Message) -> ClassifyResult {
+fn classify_parsed_mail(_ctx: &mut Ctx, msg: &mail_parser::Message) -> ClassifyResult {
     let from_address = msg
         .header(HeaderName::From)
         .and_then(|v| v.as_address())
@@ -131,7 +119,7 @@ fn classify_parsed_mail(ctx: &mut Ctx, msg: &mail_parser::Message) -> ClassifyRe
         .and_then(|v| v.as_text())
         .unwrap_or("");
 
-    if re_match(ctx, subject, "Täääst") {
+    if regex_is_match!("Täääst", subject) {
         return ClassifyResult::Quarantine;
     }
 
@@ -394,9 +382,7 @@ enum Command {
 
 fn xmain() -> Result<()> {
     let cli = Cli::parse();
-    let mut ctx = Ctx {
-        regex_cache: RegexCache::new(1000),
-    };
+    let mut ctx = Ctx {};
     match cli.command {
         Command::Test { filename } => cmd_test(&mut ctx, &filename),
         Command::Daemon { address } => {
