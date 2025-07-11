@@ -118,7 +118,7 @@ fn classify_parsed_mail(ctx: &Ctx, msg: &mail_parser::Message) -> ClassifyResult
         .header(HeaderName::From)
         .and_then(|v| v.as_address())
         .and_then(|v| v.as_list())
-        .and_then(|v| v.get(0))
+        .and_then(|v| v.first())
         .and_then(|v| v.address())
         .unwrap_or("");
     let subject = msg
@@ -139,7 +139,7 @@ fn classify_mail(ctx: &mut Ctx, input: &[u8]) -> ClassifyResult {
         Some(msg) => classify_parsed_mail(ctx, &msg),
         None => {
             eprintln!("failed to parse message!");
-            return ClassifyResult::Accept;
+            ClassifyResult::Accept
         }
     }
 }
