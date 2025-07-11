@@ -129,7 +129,7 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
         .unwrap_or("");
     let sender = &mail_info.sender;
     let recipients = &mail_info.recipients;
-    dbg!(&mail_info.macros);
+    // dbg!(&mail_info.macros);
 
     include!("srmilter.classify.rs");
 
@@ -282,6 +282,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 }
 
                 let result = classify_mail(&mail_info, &mail_buffer);
+                let queue_id = mail_info.macros.get("i").map(AsRef::as_ref).unwrap_or("-");
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -289,7 +290,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("accept");
+                        println!("{queue_id}: accept");
                     }
                     ClassifyResult::Reject => {
                         writer.rewind()?;
@@ -297,7 +298,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("reject");
+                        println!("{queue_id}: reject");
                     }
                     ClassifyResult::Quarantine => {
                         writer.rewind()?;
@@ -310,7 +311,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("quarantine");
+                        println!("{queue_id}: quarantine");
                     }
                 };
                 stream_writer.flush()?;
