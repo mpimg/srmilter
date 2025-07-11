@@ -9,6 +9,7 @@ use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::borrow::Cow::Borrowed;
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -16,7 +17,6 @@ use std::os::fd::FromRawFd;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::collections::HashMap;
 
 use mail_parser::{HeaderName, MessageParser};
 
@@ -148,9 +148,11 @@ fn classify_mail(mail_info: &MailInfo, input: &[u8]) -> ClassifyResult {
 }
 
 fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<()> {
-    let mut mail_info = MailInfo::default();
-    mail_info.sender = sender;
-    mail_info.recipients = recipients;
+    let mail_info = MailInfo {
+        sender,
+        recipients,
+        ..Default::default()
+    };
     let result = classify_mail(&mail_info, &fs::read(filename)?);
     dbg!(result);
     Ok(())
@@ -209,19 +211,19 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 let for_cmd = read_char(&mut data_reader)?;
                 let macro_map = match for_cmd {
                     'C' => &mut connect_macros,
-                    _ => &mut mail_info.macros
+                    _ => &mut mail_info.macros,
                 };
                 let mut name = Vec::new();
                 let mut value = Vec::new();
                 loop {
                     data_reader.read_until(b'\0', &mut name)?;
-                    if name.len() == 0 {
+                    if name.is_empty() {
                         break;
                     }
                     data_reader.read_until(b'\0', &mut value)?;
                     macro_map.insert(
                         String::from_utf8_lossy(vec_trim_zero(&name)).to_string(),
-                        String::from_utf8_lossy(vec_trim_zero(&value)).to_string()
+                        String::from_utf8_lossy(vec_trim_zero(&value)).to_string(),
                     );
                     name.clear();
                     value.clear();
