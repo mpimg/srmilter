@@ -107,13 +107,13 @@ enum ClassifyResult {
 }
 
 #[derive(Default)]
-struct Ctx {
+struct MailInfo {
     sender: String,
     recipients: Vec<String>,
 }
 
 #[allow(unused_variables)]
-fn classify_parsed_mail(ctx: &Ctx, msg: &mail_parser::Message) -> ClassifyResult {
+fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> ClassifyResult {
     let from_address = msg
         .header(HeaderName::From)
         .and_then(|v| v.as_address())
@@ -125,18 +125,18 @@ fn classify_parsed_mail(ctx: &Ctx, msg: &mail_parser::Message) -> ClassifyResult
         .header(HeaderName::Subject)
         .and_then(|v| v.as_text())
         .unwrap_or("");
-    let sender = &ctx.sender;
-    let recipients = &ctx.recipients;
+    let sender = &mail_info.sender;
+    let recipients = &mail_info.recipients;
 
     include!("srmilter.classify.rs");
 
     ClassifyResult::Accept
 }
 
-fn classify_mail(ctx: &mut Ctx, input: &[u8]) -> ClassifyResult {
+fn classify_mail(mail_info: &MailInfo, input: &[u8]) -> ClassifyResult {
     let r = MessageParser::default().parse(input);
     match r {
-        Some(msg) => classify_parsed_mail(ctx, &msg),
+        Some(msg) => classify_parsed_mail(mail_info, &msg),
         None => {
             eprintln!("failed to parse message!");
             ClassifyResult::Accept
@@ -144,20 +144,21 @@ fn classify_mail(ctx: &mut Ctx, input: &[u8]) -> ClassifyResult {
     }
 }
 
-fn cmd_test(ctx: &mut Ctx, filename: &Path) -> Result<()> {
-    let result = classify_mail(ctx, &fs::read(filename)?);
+fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<()> {
+    let mut mail_info = MailInfo::default();
+    mail_info.sender = sender;
+    mail_info.recipients = recipients;
+    let result = classify_mail(&mail_info, &fs::read(filename)?);
     dbg!(result);
     Ok(())
 }
 
-fn process_client(
-    ctx: &mut Ctx,
-    mut stream_reader: impl BufRead,
-    mut stream_writer: impl Write,
-) -> Result<()> {
+fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write) -> Result<()> {
     let mut data_read_buffer: Vec<u8> = Vec::with_capacity(4096);
     let data_write_buffer: Vec<u8> = Vec::with_capacity(64);
     let mut writer = Cursor::new(data_write_buffer);
+
+    let mut mail_info = MailInfo::default();
 
     let mut mail_buffer = Vec::<u8>::new();
 
@@ -211,13 +212,14 @@ fn process_client(
                 let mut sender = Vec::new();
                 data_reader.read_until(b'\0', &mut sender)?;
                 // possibly followed by more strings (ESMPT arguments)
-                ctx.sender = String::from_utf8_lossy(vec_trim_zero(&sender)).to_string();
+                mail_info.sender = String::from_utf8_lossy(vec_trim_zero(&sender)).to_string();
                 // reply disabled with SMFIP_NR_MAIL
             }
             'R' => {
                 let mut rcpt = Vec::new();
                 data_reader.read_until(b'\0', &mut rcpt)?;
-                ctx.recipients
+                mail_info
+                    .recipients
                     .push(String::from_utf8_lossy(vec_trim_zero(&rcpt)).to_string());
                 // reply disabled with SMFIP_NR_RCPT
             }
@@ -255,7 +257,7 @@ fn process_client(
             'E' => {
                 // println!("XXX SMFIC_BODYEOB");
 
-                let result = classify_mail(ctx, &mail_buffer);
+                let result = classify_mail(&mail_info, &mail_buffer);
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -289,8 +291,7 @@ fn process_client(
                 };
                 stream_writer.flush()?;
                 mail_buffer.clear();
-                ctx.recipients = Default::default();
-                ctx.sender = Default::default();
+                mail_info = MailInfo::default();
             }
             'Q' => {
                 // println!("XXX SMFIC_QUIT");
@@ -300,8 +301,7 @@ fn process_client(
             'A' => {
                 // println!("XXX SMFIC_ABORT");
                 mail_buffer.clear();
-                ctx.recipients = Default::default();
-                ctx.sender = Default::default();
+                mail_info = MailInfo::default();
 
                 // no reply to SMFIC_ABORT
             }
@@ -335,7 +335,7 @@ fn install_signal_handler() {
     }
 }
 
-fn daemon(ctx: &mut Ctx, address: &str) -> Result<()> {
+fn daemon(address: &str) -> Result<()> {
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
         None => {
@@ -359,7 +359,7 @@ fn daemon(ctx: &mut Ctx, address: &str) -> Result<()> {
         let stream: TcpStream = socket.into();
         let reader = BufReader::new(&stream);
         let writer = BufWriter::new(&stream);
-        if let Err(e) = process_client(ctx, reader, writer) {
+        if let Err(e) = process_client(reader, writer) {
             eprintln!("{e}");
         }
         if FLAG_SHUTDOWN.load(Ordering::Relaxed) {
@@ -392,21 +392,18 @@ enum Command {
 
 fn xmain() -> Result<()> {
     let cli = Cli::parse();
-    let mut ctx = Ctx::default();
     match cli.command {
         Command::Test {
             filename,
             sender,
             recipients,
-        } => {
-            ctx.sender = sender.unwrap_or_default();
-            ctx.recipients = recipients.unwrap_or_default();
-            cmd_test(&mut ctx, &filename)
-        }
+        } => cmd_test(
+            &filename,
+            sender.unwrap_or_default(),
+            recipients.unwrap_or_default(),
+        ),
 
-        Command::Daemon { address } => {
-            daemon(&mut ctx, &address.unwrap_or("0.0.0.0:7044".to_string()))
-        }
+        Command::Daemon { address } => daemon(&address.unwrap_or("0.0.0.0:7044".to_string())),
     }
 }
 
