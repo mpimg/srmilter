@@ -16,6 +16,7 @@ use std::os::fd::FromRawFd;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashMap;
 
 use mail_parser::{HeaderName, MessageParser};
 
@@ -110,6 +111,7 @@ enum ClassifyResult {
 struct MailInfo {
     sender: String,
     recipients: Vec<String>,
+    macros: HashMap<String, String>,
 }
 
 #[allow(unused_variables)]
@@ -127,6 +129,7 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
         .unwrap_or("");
     let sender = &mail_info.sender;
     let recipients = &mail_info.recipients;
+    dbg!(&mail_info.macros);
 
     include!("srmilter.classify.rs");
 
@@ -158,6 +161,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
     let data_write_buffer: Vec<u8> = Vec::with_capacity(64);
     let mut writer = Cursor::new(data_write_buffer);
 
+    let mut connect_macros: HashMap<String, String> = HashMap::new();
     let mut mail_info = MailInfo::default();
 
     let mut mail_buffer = Vec::<u8>::new();
@@ -202,10 +206,26 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 stream_writer.flush()?;
             }
             'D' => {
-                let _cmd = read_char(&mut data_reader)?;
-                let mut macros = Vec::new();
-                data_reader.read_to_end(&mut macros)?;
-                // println!("XXX SMFIC_MACRO for cmd {_cmd} (ignored)");
+                let for_cmd = read_char(&mut data_reader)?;
+                let macro_map = match for_cmd {
+                    'C' => &mut connect_macros,
+                    _ => &mut mail_info.macros
+                };
+                let mut name = Vec::new();
+                let mut value = Vec::new();
+                loop {
+                    data_reader.read_until(b'\0', &mut name)?;
+                    if name.len() == 0 {
+                        break;
+                    }
+                    data_reader.read_until(b'\0', &mut value)?;
+                    macro_map.insert(
+                        String::from_utf8_lossy(vec_trim_zero(&name)).to_string(),
+                        String::from_utf8_lossy(vec_trim_zero(&value)).to_string()
+                    );
+                    name.clear();
+                    value.clear();
+                }
                 // no reply to SMIC_MACRO
             }
             'M' => {
@@ -256,6 +276,10 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
             }
             'E' => {
                 // println!("XXX SMFIC_BODYEOB");
+
+                for (key, value) in &connect_macros {
+                    mail_info.macros.insert(key.clone(), value.clone());
+                }
 
                 let result = classify_mail(&mail_info, &mail_buffer);
                 match result {
