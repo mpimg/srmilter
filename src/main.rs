@@ -90,9 +90,11 @@ fn read_bytes(reader: &mut impl Read, len: usize, data: &mut Vec<u8>) -> Result<
     reader.read_exact(data).map_err(to_boxed_error)
 }
 
-fn vec_append_trim(buf: &mut Vec<u8>, input: &[u8]) {
+fn vec_trim_zero(input: &[u8]) -> &[u8] {
     if let Some(pos) = input.iter().rposition(|&x| x != 0) {
-        buf.extend(&input[0..=pos])
+        &input[0..=pos]
+    } else {
+        input
     }
 }
 
@@ -228,9 +230,9 @@ fn process_client(
                 data_reader.read_until(b'\0', &mut name)?;
                 data_reader.read_until(b'\0', &mut value)?;
 
-                vec_append_trim(&mut mail_buffer, &name);
+                mail_buffer.extend_from_slice(vec_trim_zero(&name));
                 mail_buffer.extend_from_slice(b": ");
-                vec_append_trim(&mut mail_buffer, &value);
+                mail_buffer.extend_from_slice(vec_trim_zero(&value));
                 mail_buffer.extend_from_slice(b"\r\n");
 
                 // let name = String::from_utf8_lossy(&name);
@@ -463,4 +465,16 @@ fn test_write_cursor() {
 fn test_cli() {
     use clap::CommandFactory;
     Cli::command().debug_assert();
+}
+
+#[test]
+fn test_vec_trim() {
+    let input: [u8; 0] = [];
+    assert_eq!(vec_trim_zero(&input), input);
+    let input: [u8; 3] = [1, 2, 3];
+    assert_eq!(vec_trim_zero(&input), input);
+    let input: [u8; 6] = [1, 2, 3, 0, 0, 0];
+    assert_eq!(vec_trim_zero(&input), [1, 2, 3]);
+    let input: [u8; 7] = [1, 2, 3, 0, 0, 0, 5];
+    assert_eq!(vec_trim_zero(&input), [1, 2, 3, 0, 0, 0, 5]);
 }
