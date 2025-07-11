@@ -208,20 +208,17 @@ fn process_client(
                 // no reply to SMIC_MACRO
             }
             'M' => {
-                let mut from = Vec::new();
-                data_reader.read_to_end(&mut from)?;
-                ctx.sender = String::from_utf8_lossy(&from).to_string();
-                // let from = String::from_utf8_lossy(&from);
-                // println!("XXX SMFIC_MAIL from {from}");
+                let mut sender = Vec::new();
+                data_reader.read_until(b'\0', &mut sender)?;
+                // possibly followed by more strings (ESMPT arguments)
+                ctx.sender = String::from_utf8_lossy(vec_trim_zero(&sender)).to_string();
                 // reply disabled with SMFIP_NR_MAIL
             }
             'R' => {
                 let mut rcpt = Vec::new();
-                data_reader.read_to_end(&mut rcpt)?;
+                data_reader.read_until(b'\0', &mut rcpt)?;
                 ctx.recipients
-                    .push(String::from_utf8_lossy(&rcpt).to_string());
-                // let rcpt = String::from_utf8_lossy(&rcpt);
-                // println!("XXX SMFIC_RCPT rcpt {rcpt}");
+                    .push(String::from_utf8_lossy(vec_trim_zero(&rcpt)).to_string());
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
