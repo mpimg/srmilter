@@ -99,6 +99,12 @@ fn vec_trim_zero(input: &[u8]) -> &[u8] {
     }
 }
 
+fn read_cstring(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
+    buffer.clear();
+    reader.read_until(b'\0', buffer)?;
+    Ok(String::from_utf8_lossy(vec_trim_zero(buffer)).to_string())
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 enum ClassifyResult {
@@ -167,6 +173,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
     let mut mail_info = MailInfo::default();
 
     let mut mail_buffer = Vec::<u8>::new();
+    let mut string_buffer = Vec::<u8>::new();
 
     loop {
         let len = read_u32(&mut stream_reader)?;
@@ -213,36 +220,25 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                     'C' => &mut connect_macros,
                     _ => &mut mail_info.macros,
                 };
-                let mut name = Vec::new();
-                let mut value = Vec::new();
                 loop {
-                    data_reader.read_until(b'\0', &mut name)?;
+                    let name = read_cstring(&mut data_reader, &mut string_buffer)?;
                     if name.is_empty() {
                         break;
                     }
-                    data_reader.read_until(b'\0', &mut value)?;
-                    macro_map.insert(
-                        String::from_utf8_lossy(vec_trim_zero(&name)).to_string(),
-                        String::from_utf8_lossy(vec_trim_zero(&value)).to_string(),
-                    );
-                    name.clear();
-                    value.clear();
+                    let value = read_cstring(&mut data_reader, &mut string_buffer)?;
+                    macro_map.insert(name, value);
                 }
                 // no reply to SMIC_MACRO
             }
             'M' => {
-                let mut sender = Vec::new();
-                data_reader.read_until(b'\0', &mut sender)?;
+                mail_info.sender = read_cstring(&mut data_reader, &mut string_buffer)?;
                 // possibly followed by more strings (ESMPT arguments)
-                mail_info.sender = String::from_utf8_lossy(vec_trim_zero(&sender)).to_string();
                 // reply disabled with SMFIP_NR_MAIL
             }
             'R' => {
-                let mut rcpt = Vec::new();
-                data_reader.read_until(b'\0', &mut rcpt)?;
                 mail_info
                     .recipients
-                    .push(String::from_utf8_lossy(vec_trim_zero(&rcpt)).to_string());
+                    .push(read_cstring(&mut data_reader, &mut string_buffer)?);
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
@@ -498,4 +494,15 @@ fn test_vec_trim() {
     assert_eq!(vec_trim_zero(&input), [1, 2, 3]);
     let input: [u8; 7] = [1, 2, 3, 0, 0, 0, 5];
     assert_eq!(vec_trim_zero(&input), [1, 2, 3, 0, 0, 0, 5]);
+}
+
+#[test]
+fn test_read_cstr() {
+    let input = b"Test1\0Test2\0Test3";
+    let mut reader = Cursor::new(&input);
+    let mut buffer: Vec<u8> = Vec::new();
+    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "Test1");
+    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "Test2");
+    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "Test3");
+    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "");
 }
