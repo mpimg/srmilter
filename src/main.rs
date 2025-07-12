@@ -115,6 +115,7 @@ struct MailInfo {
     sender: String,
     recipients: Vec<String>,
     macros: HashMap<String, String>,
+    mail_buffer: Vec<u8>,
 }
 
 #[allow(unused_variables)]
@@ -139,8 +140,8 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
     ClassifyResult::Accept
 }
 
-fn classify_mail(mail_info: &MailInfo, input: &[u8]) -> ClassifyResult {
-    let r = MessageParser::default().parse(input);
+fn classify_mail(mail_info: &MailInfo) -> ClassifyResult {
+    let r = MessageParser::default().parse(&mail_info.mail_buffer);
     match r {
         Some(msg) => classify_parsed_mail(mail_info, &msg),
         None => {
@@ -154,9 +155,10 @@ fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<
     let mail_info = MailInfo {
         sender,
         recipients,
+        mail_buffer: fs::read(filename)?,
         ..Default::default()
     };
-    let result = classify_mail(&mail_info, &fs::read(filename)?);
+    let result = classify_mail(&mail_info);
     dbg!(result);
     Ok(())
 }
@@ -169,7 +171,6 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
     let mut connect_macros: HashMap<String, String> = HashMap::new();
     let mut mail_info = MailInfo::default();
 
-    let mut mail_buffer = Vec::<u8>::new();
     let mut string_buffer = Vec::<u8>::new();
 
     loop {
@@ -244,10 +245,14 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 data_reader.read_until(b'\0', &mut name)?;
                 data_reader.read_until(b'\0', &mut value)?;
 
-                mail_buffer.extend_from_slice(vec_trim_zero(&name));
-                mail_buffer.extend_from_slice(b": ");
-                mail_buffer.extend_from_slice(vec_trim_zero(&value));
-                mail_buffer.extend_from_slice(b"\r\n");
+                mail_info
+                    .mail_buffer
+                    .extend_from_slice(vec_trim_zero(&name));
+                mail_info.mail_buffer.extend_from_slice(b": ");
+                mail_info
+                    .mail_buffer
+                    .extend_from_slice(vec_trim_zero(&value));
+                mail_info.mail_buffer.extend_from_slice(b"\r\n");
 
                 // let name = String::from_utf8_lossy(&name);
                 // let value = String::from_utf8_lossy(&value);
@@ -256,14 +261,14 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
             }
             'N' => {
                 // println!("XXX SMFIC_EOH");
-                mail_buffer.extend_from_slice(b"\r\n");
+                mail_info.mail_buffer.extend_from_slice(b"\r\n");
                 // reply disabled with SMFIP_NR_EOH
             }
             'B' => {
                 let mut bdata = Vec::new();
                 data_reader.read_to_end(&mut bdata)?;
 
-                mail_buffer.extend_from_slice(&bdata[..]);
+                mail_info.mail_buffer.extend_from_slice(&bdata[..]);
 
                 // let bdata = String::from_utf8_lossy(&bdata);
                 // println!("XXX SMFIC_BODY {bdata}");
@@ -276,7 +281,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                     mail_info.macros.insert(key.clone(), value.clone());
                 }
 
-                let result = classify_mail(&mail_info, &mail_buffer);
+                let result = classify_mail(&mail_info);
                 let queue_id = mail_info.macros.get("i").map(AsRef::as_ref).unwrap_or("-");
                 match result {
                     ClassifyResult::Accept => {
@@ -310,7 +315,6 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                     }
                 };
                 stream_writer.flush()?;
-                mail_buffer.clear();
                 mail_info = MailInfo::default();
             }
             'Q' => {
@@ -320,7 +324,6 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
             }
             'A' => {
                 // println!("XXX SMFIC_ABORT");
-                mail_buffer.clear();
                 mail_info = MailInfo::default();
 
                 // no reply to SMFIC_ABORT
