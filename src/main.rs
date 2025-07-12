@@ -20,9 +20,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use mail_parser::{HeaderName, MessageParser};
 
-// https://github.com/emersion/go-milter/blob/master/milter-protocol.txt
-// https://github.com/emersion/go-milter/blob/master/milter-protocol-extras.txt
-
 #[allow(dead_code)]
 mod constants {
     pub const SMFIF_VERSION: u32 = 6;
