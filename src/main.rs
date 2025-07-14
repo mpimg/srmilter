@@ -96,10 +96,14 @@ fn vec_trim_zero(input: &[u8]) -> &[u8] {
     }
 }
 
-fn read_cstring(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
+fn read_zbytes<'a>(reader: &mut impl BufRead, buffer: &'a mut Vec<u8>) -> Result<&'a [u8]> {
     buffer.clear();
     reader.read_until(b'\0', buffer)?;
-    Ok(String::from_utf8_lossy(vec_trim_zero(buffer)).to_string())
+    Ok(vec_trim_zero(buffer))
+}
+
+fn read_cstring(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
+    Ok(String::from_utf8_lossy(read_zbytes(reader, buffer)?).to_string())
 }
 
 #[allow(dead_code)]
@@ -240,23 +244,14 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
-                let mut name = Vec::new();
-                let mut value = Vec::new();
-                data_reader.read_until(b'\0', &mut name)?;
-                data_reader.read_until(b'\0', &mut value)?;
-
                 mail_info
                     .mail_buffer
-                    .extend_from_slice(vec_trim_zero(&name));
+                    .extend_from_slice(read_zbytes(&mut data_reader, &mut string_buffer)?);
                 mail_info.mail_buffer.extend_from_slice(b": ");
                 mail_info
                     .mail_buffer
-                    .extend_from_slice(vec_trim_zero(&value));
+                    .extend_from_slice(read_zbytes(&mut data_reader, &mut string_buffer)?);
                 mail_info.mail_buffer.extend_from_slice(b"\r\n");
-
-                // let name = String::from_utf8_lossy(&name);
-                // let value = String::from_utf8_lossy(&value);
-                // println!("XXX SMFIC_HEADER {name}: {value}");
                 // reply disabled with SMFIP_NR_HDR
             }
             'N' => {
