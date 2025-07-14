@@ -102,7 +102,7 @@ fn read_zbytes<'a>(reader: &mut impl BufRead, buffer: &'a mut Vec<u8>) -> Result
     Ok(vec_trim_zero(buffer))
 }
 
-fn read_cstring(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
+fn read_zstring(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
     Ok(String::from_utf8_lossy(read_zbytes(reader, buffer)?).to_string())
 }
 
@@ -223,24 +223,24 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                     _ => &mut mail_info.macros,
                 };
                 loop {
-                    let name = read_cstring(&mut data_reader, &mut string_buffer)?;
+                    let name = read_zstring(&mut data_reader, &mut string_buffer)?;
                     if name.is_empty() {
                         break;
                     }
-                    let value = read_cstring(&mut data_reader, &mut string_buffer)?;
+                    let value = read_zstring(&mut data_reader, &mut string_buffer)?;
                     macro_map.insert(name, value);
                 }
                 // no reply to SMIC_MACRO
             }
             'M' => {
-                mail_info.sender = read_cstring(&mut data_reader, &mut string_buffer)?;
+                mail_info.sender = read_zstring(&mut data_reader, &mut string_buffer)?;
                 // possibly followed by more strings (ESMPT arguments)
                 // reply disabled with SMFIP_NR_MAIL
             }
             'R' => {
                 mail_info
                     .recipients
-                    .push(read_cstring(&mut data_reader, &mut string_buffer)?);
+                    .push(read_zstring(&mut data_reader, &mut string_buffer)?);
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
@@ -496,8 +496,8 @@ fn test_read_cstr() {
     let input = b"Test1\0Test2\0Test3";
     let mut reader = Cursor::new(&input);
     let mut buffer: Vec<u8> = Vec::new();
-    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "Test1");
-    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "Test2");
-    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "Test3");
-    assert_eq!(read_cstring(&mut reader, &mut buffer).unwrap(), "");
+    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test1");
+    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test2");
+    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test3");
+    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "");
 }
