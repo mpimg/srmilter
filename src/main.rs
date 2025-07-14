@@ -119,6 +119,7 @@ struct MailInfo {
     sender: String,
     recipients: Vec<String>,
     macros: HashMap<String, String>,
+    id: String, // postfix queue ident
     mail_buffer: Vec<u8>,
 }
 
@@ -137,6 +138,7 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
         .unwrap_or("");
     let sender = &mail_info.sender;
     let recipients = &mail_info.recipients;
+    let id = &mail_info.id;
 
     include!("srmilter.classify.rs");
 
@@ -265,8 +267,13 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 for (key, value) in &connect_macros {
                     mail_info.macros.insert(key.clone(), value.clone());
                 }
+                mail_info.id = mail_info
+                    .macros
+                    .get("i")
+                    .map(AsRef::as_ref)
+                    .unwrap_or("-")
+                    .to_string();
                 let result = classify_mail(&mail_info);
-                let queue_id = mail_info.macros.get("i").map(AsRef::as_ref).unwrap_or("-");
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -274,7 +281,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("{queue_id}: accept");
+                        println!("{}: accept", mail_info.id);
                     }
                     ClassifyResult::Reject => {
                         writer.rewind()?;
@@ -282,7 +289,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("{queue_id}: reject");
+                        println!("{}: reject", mail_info.id);
                     }
                     ClassifyResult::Quarantine => {
                         writer.rewind()?;
@@ -295,7 +302,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("{queue_id}: quarantine");
+                        println!("{}: quarantine", mail_info.id);
                     }
                 };
                 stream_writer.flush()?;
