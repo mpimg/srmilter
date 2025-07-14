@@ -137,7 +137,6 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
         .unwrap_or("");
     let sender = &mail_info.sender;
     let recipients = &mail_info.recipients;
-    // dbg!(&mail_info.macros);
 
     include!("srmilter.classify.rs");
 
@@ -188,12 +187,10 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
         let cmd = read_char(&mut data_reader)?;
         match cmd {
             'O' => {
+                // ignored:
                 // let version = read_u32(&mut data_reader)?;
                 // let actions = read_u32(&mut data_reader)?;
                 // let protocol = read_u32(&mut data_reader)?;
-                // println!(
-                //     "XXX SMFIC_OPTNEG version {version} actions {actions:08x} protocol {protocol:08x}"
-                // );
                 writer.rewind()?;
                 writer.write_all(b"O")?;
                 writer.write_all(&SMFIF_VERSION.to_be_bytes())?;
@@ -255,27 +252,19 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 // reply disabled with SMFIP_NR_HDR
             }
             'N' => {
-                // println!("XXX SMFIC_EOH");
                 mail_info.mail_buffer.extend_from_slice(b"\r\n");
                 // reply disabled with SMFIP_NR_EOH
             }
             'B' => {
                 let mut bdata = Vec::new();
                 data_reader.read_to_end(&mut bdata)?;
-
                 mail_info.mail_buffer.extend_from_slice(&bdata[..]);
-
-                // let bdata = String::from_utf8_lossy(&bdata);
-                // println!("XXX SMFIC_BODY {bdata}");
                 // reply disabled with SMFIP_NR_BODY
             }
             'E' => {
-                // println!("XXX SMFIC_BODYEOB");
-
                 for (key, value) in &connect_macros {
                     mail_info.macros.insert(key.clone(), value.clone());
                 }
-
                 let result = classify_mail(&mail_info);
                 let queue_id = mail_info.macros.get("i").map(AsRef::as_ref).unwrap_or("-");
                 match result {
@@ -313,14 +302,11 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 mail_info = MailInfo::default();
             }
             'Q' => {
-                // println!("XXX SMFIC_QUIT");
                 // no reply to SMFIC_QUIT
                 break;
             }
             'A' => {
-                // println!("XXX SMFIC_ABORT");
                 mail_info = MailInfo::default();
-
                 // no reply to SMFIC_ABORT
             }
             _ => {
