@@ -5,7 +5,7 @@
 
 
     if regex_is_match!("Täääst", subject) {
-        return ClassifyResult::Quarantine;
+        quarantine!();
     }
 
     if msg
@@ -13,15 +13,14 @@
         .is_some()
     {
         if from_address.ends_with("@iscb.org") || from_address.ends_with("@news.arraystar.com") {
-            return ClassifyResult::Accept;
+            accept!();
         } else {
-            return ClassifyResult::Quarantine;
+            quarantine!();
         }
     }
 
     if regex_is_match!("for your business", text) {
-        return ClassifyResult::Quarantine;
+        quarantine!();
     }
-
 
 } /* bracket required */

@@ -187,7 +187,7 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
     }
 
     include!("srmilter.classify.rs"); // included code might do early return
-    ClassifyResult::Accept
+    accept!("default");
 }
 
 fn classify_mail(mail_info: &MailInfo) -> ClassifyResult {
@@ -195,7 +195,10 @@ fn classify_mail(mail_info: &MailInfo) -> ClassifyResult {
     match r {
         Some(msg) => classify_parsed_mail(mail_info, &msg),
         None => {
-            eprintln!("failed to parse message!");
+            println!(
+                "{}: ACCEPT (because of failure to parse message)",
+                mail_info.id,
+            );
             ClassifyResult::Accept
         }
     }
@@ -206,10 +209,10 @@ fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<
         sender,
         recipients,
         mail_buffer: fs::read(filename)?,
+        id: "test".to_string(),
         ..Default::default()
     };
-    let result = classify_mail(&mail_info);
-    dbg!(result);
+    let _result = classify_mail(&mail_info);
     Ok(())
 }
 
@@ -326,7 +329,6 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("{}: accept", mail_info.id);
                     }
                     ClassifyResult::Reject => {
                         writer.rewind()?;
@@ -334,7 +336,6 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("{}: reject", mail_info.id);
                     }
                     ClassifyResult::Quarantine => {
                         writer.rewind()?;
@@ -347,7 +348,6 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
-                        println!("{}: quarantine", mail_info.id);
                     }
                 };
                 stream_writer.flush()?;
