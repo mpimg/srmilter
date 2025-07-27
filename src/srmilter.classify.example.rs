@@ -6,6 +6,9 @@
     dbg!(recipients);
     dbg!(subject);
 
+    let text = &msg.body_text(0).unwrap_or(std::borrow::Cow::Borrowed(""));
+    dbg!(text);
+
     if regex_is_match!("Täääst", subject) {
         return ClassifyResult::Quarantine;
     }
@@ -20,5 +23,10 @@
             return ClassifyResult::Quarantine;
         }
     }
+
+    if regex_is_match!("for your business", text) {
+        return ClassifyResult::Quarantine;
+    }
+
 
 } /* bracket required */
