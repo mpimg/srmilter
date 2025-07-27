@@ -2,11 +2,7 @@
 
     // file format subject to change!
 
-    dbg!(sender);
-    dbg!(recipients);
-    dbg!(subject);
 
-    dbg!(text);
 
     if regex_is_match!("Täääst", subject) {
         return ClassifyResult::Quarantine;
