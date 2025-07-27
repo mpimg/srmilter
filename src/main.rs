@@ -114,6 +114,16 @@ enum ClassifyResult {
     Quarantine,
 }
 
+impl ClassifyResult {
+    fn uc(self) -> &'static str {
+        match self {
+            ClassifyResult::Accept => "ACCEPT",
+            ClassifyResult::Reject => "REJECT",
+            ClassifyResult::Quarantine => "QUARANTINE",
+        }
+    }
+}
+
 #[derive(Default)]
 struct MailInfo {
     sender: String,
@@ -123,7 +133,7 @@ struct MailInfo {
     mail_buffer: Vec<u8>,
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables, unused_macros)]
 fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> ClassifyResult {
     let from_address = msg
         .header(HeaderName::From)
@@ -141,8 +151,42 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
     let id = &mail_info.id;
     let text = &msg.body_text(0).unwrap_or(std::borrow::Cow::Borrowed(""));
 
-    include!("srmilter.classify.rs");
+    macro_rules! log {
+        ($($args:tt)*) => {
+            println!("{}: {}", mail_info.id, format_args!($($args)*));
+        }
+    }
 
+    macro_rules! _result {
+        ($result_val: expr $(,)?) => {
+            log!("{} (by {} line {})", $result_val.uc(), file!(), line!());
+            return $result_val;
+        };
+        ($result_val: expr, $($args:tt)* ) => {
+            log!("{} ({})", $result_val.uc(), format_args!($($args)*));
+            return $result_val;
+        }
+    }
+
+    macro_rules! accept {
+        ($($args:tt)*) => {
+            _result!(ClassifyResult::Accept, $($args)*)
+        }
+    }
+
+    macro_rules! quarantine {
+        ($($args:tt)*) => {
+            _result!(ClassifyResult::Quarantine, $($args)*)
+        }
+    }
+
+    macro_rules! reject {
+        ($($args:tt)*) => {
+            _result!(ClassifyResult::Reject, $($args)*)
+        }
+    }
+
+    include!("srmilter.classify.rs"); // included code might do early return
     ClassifyResult::Accept
 }
 
