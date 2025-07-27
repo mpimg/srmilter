@@ -139,6 +139,7 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
     let sender = &mail_info.sender;
     let recipients = &mail_info.recipients;
     let id = &mail_info.id;
+    let text = &msg.body_text(0).unwrap_or(std::borrow::Cow::Borrowed(""));
 
     include!("srmilter.classify.rs");
 

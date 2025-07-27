@@ -6,7 +6,6 @@
     dbg!(recipients);
     dbg!(subject);
 
-    let text = &msg.body_text(0).unwrap_or(std::borrow::Cow::Borrowed(""));
     dbg!(text);
 
     if regex_is_match!("Täääst", subject) {
