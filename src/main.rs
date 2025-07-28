@@ -173,6 +173,13 @@ impl MailInfo<'_> {
             .and_then(|v| v.as_text())
             .unwrap_or("")
     }
+    fn get_spam_score(&self) -> f32 {
+        self.msg
+            .header(HeaderName::Other(Borrowed("X-Spam-Score")))
+            .and_then(|v| v.as_text())
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(0f32)
+    }
 }
 
 macro_rules! log {
