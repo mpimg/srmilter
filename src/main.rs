@@ -185,42 +185,51 @@ fn classify_parsed_mail(mail_info: &MailInfo) -> ClassifyResult {
     let text = &mail_info.get_text();
 
     macro_rules! log {
-        ($($args:tt)*) => {
-            println!("{}: {}", mail_info.id, format_args!($($args)*));
+        ($mi: expr, $($args:tt)*) => {
+            println!("{}: {}", $mi.id, format_args!($($args)*));
         }
     }
 
     macro_rules! _result {
-        ($result_val: expr $(,)?) => {
-            log!("{} (by {} line {})", $result_val.uc(), file!(), line!());
+        ($mi: expr, $result_val: expr $(,)?) => {
+            log!($mi, "{} (by {} line {})", $result_val.uc(), file!(), line!());
             return $result_val;
         };
-        ($result_val: expr, $($args:tt)* ) => {
-            log!("{} ({})", $result_val.uc(), format_args!($($args)*));
+        ($mi: expr, $result_val: expr, $($args:tt)* ) => {
+            log!($mi, "{} ({})", $result_val.uc(), format_args!($($args)*));
             return $result_val;
         }
     }
 
     macro_rules! accept {
-        ($($args:tt)*) => {
-            _result!(ClassifyResult::Accept, $($args)*)
+        ($mi: expr, $($args:tt)*) => {
+            _result!($mi, ClassifyResult::Accept, $($args)*)
+        };
+        ($mi: expr) => {
+            _result!($mi, ClassifyResult::Accept)
         }
     }
 
     macro_rules! quarantine {
-        ($($args:tt)*) => {
-            _result!(ClassifyResult::Quarantine, $($args)*)
+        ($mi: expr, $($args:tt)*) => {
+            _result!($mi, ClassifyResult::Quarantine, $($args)*)
+        };
+        ($mi: expr) => {
+            _result!($mi, ClassifyResult::Quarantine)
         }
     }
 
     macro_rules! reject {
-        ($($args:tt)*) => {
-            _result!(ClassifyResult::Reject, $($args)*)
+        ($mi: expr, $($args:tt)*) => {
+            _result!($mi, ClassifyResult::Reject, $($args)*)
+        };
+        ($mi: expr) => {
+            _result!($mi, ClassifyResult::Reject)
         }
     }
 
     include!("srmilter.classify.rs"); // included code might do early return
-    accept!("default");
+    accept!(mail_info, "default");
 }
 
 fn classify_mail<'a>(mail_info: &'a mut MailInfo<'a>) -> ClassifyResult {
