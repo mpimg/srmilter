@@ -6,7 +6,6 @@
 // https://github.com/emersion/go-milter/blob/master/milter-protocol-extras.txt
 
 use clap::Parser;
-use lazy_regex::*;
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use socket2::{Domain, Protocol, Socket, Type};
@@ -220,26 +219,14 @@ macro_rules! reject {
     }
 }
 
-#[allow(unused_variables)]
-fn classify_parsed_mail(mail_info: &MailInfo) -> ClassifyResult {
-    let msg = mail_info.get_message();
-    let from_address = mail_info.get_from_address();
-    let subject = mail_info.get_subject();
-    let sender = mail_info.get_sender();
-    let recipients = mail_info.get_recipients();
-    let id = mail_info.get_id();
-    let text = &mail_info.get_text();
-
-    include!("classify.rs"); // included code might do early return
-    accept!(mail_info, "default");
-}
+mod classify;
 
 fn classify_mail<'a>(mail_info: &'a mut MailInfo<'a>) -> ClassifyResult {
     let r = MessageParser::default().parse(&mail_info.mail_buffer);
     match r {
         Some(msg) => {
             mail_info.msg = msg;
-            classify_parsed_mail(mail_info)
+            classify::classify(mail_info)
         }
         None => {
             println!(

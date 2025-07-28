@@ -1,20 +1,5 @@
-{ /* bracket required */
-
 /*
     file format subject to change!
-
-    available data:
-
-      id                 postfix queue ident or "test" or ""
-
-      sender             envelope sender (if known) or ""
-      recipients         envelope recipients ( &Vec<&String> )
-
-      from_address       address part of first or only From Address or ""
-      subject            Subject or ""
-      text               message text (text/plain alternative or converted text/html)
-
-      msg                &mail_parser::Message
 
     available macros:
 
@@ -26,6 +11,20 @@
 
       regex_is_match!    from lazy_regex
 */
+
+use crate::ClassifyResult;
+use crate::MailInfo;
+use lazy_regex::regex_is_match;
+
+#[allow(unused_variables)]
+pub fn classify(mail_info: &MailInfo) -> ClassifyResult {
+    let msg = mail_info.get_message();
+    let from_address = mail_info.get_from_address();
+    let subject = mail_info.get_subject();
+    let sender = mail_info.get_sender();
+    let recipients = mail_info.get_recipients();
+    let id = mail_info.get_id();
+    let text = &mail_info.get_text();
 
     if regex_is_match!("Täääst", subject) {
         quarantine!(mail_info);
@@ -42,4 +41,5 @@
         quarantine!(mail_info);
     }
 
-} /* bracket required */
+    accept!(mail_info, "default");
+}
