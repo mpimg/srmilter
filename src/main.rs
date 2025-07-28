@@ -125,16 +125,18 @@ impl ClassifyResult {
 }
 
 #[derive(Default)]
-struct MailInfo {
+struct MailInfo<'a> {
     sender: String,
     recipients: Vec<String>,
     macros: HashMap<String, String>,
     id: String, // postfix queue ident
     mail_buffer: Vec<u8>,
+    msg: mail_parser::Message<'a>,
 }
 
 #[allow(unused_variables, unused_macros)]
-fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> ClassifyResult {
+fn classify_parsed_mail(mail_info: &MailInfo) -> ClassifyResult {
+    let msg = &mail_info.msg;
     let from_address = msg
         .header(HeaderName::From)
         .and_then(|v| v.as_address())
@@ -190,10 +192,13 @@ fn classify_parsed_mail(mail_info: &MailInfo, msg: &mail_parser::Message) -> Cla
     accept!("default");
 }
 
-fn classify_mail(mail_info: &MailInfo) -> ClassifyResult {
+fn classify_mail<'a>(mail_info: &'a mut MailInfo<'a>) -> ClassifyResult {
     let r = MessageParser::default().parse(&mail_info.mail_buffer);
     match r {
-        Some(msg) => classify_parsed_mail(mail_info, &msg),
+        Some(msg) => {
+            mail_info.msg = msg;
+            classify_parsed_mail(mail_info)
+        }
         None => {
             println!(
                 "{}: ACCEPT (because of failure to parse message)",
@@ -205,14 +210,14 @@ fn classify_mail(mail_info: &MailInfo) -> ClassifyResult {
 }
 
 fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<()> {
-    let mail_info = MailInfo {
+    let mut mail_info = MailInfo {
         sender,
         recipients,
         mail_buffer: fs::read(filename)?,
         id: "test".to_string(),
         ..Default::default()
     };
-    let _result = classify_mail(&mail_info);
+    classify_mail(&mut mail_info);
     Ok(())
 }
 
@@ -321,7 +326,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                     .map(AsRef::as_ref)
                     .unwrap_or("-")
                     .to_string();
-                let result = classify_mail(&mail_info);
+                let result = classify_mail(&mut mail_info);
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
