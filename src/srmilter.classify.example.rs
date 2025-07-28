@@ -31,15 +31,11 @@
         quarantine!();
     }
 
-    if msg
-        .header(HeaderName::Other(Borrowed("X-Mailru-Msgtype")))
-        .is_some()
-    {
+    if !mail_info.get_other_header("X-Mailru-Msgtype").is_empty() {
         if from_address.ends_with("@iscb.org") || from_address.ends_with("@news.arraystar.com") {
             accept!();
-        } else {
-            quarantine!();
         }
+        quarantine!();
     }
 
     if regex_is_match!("for your business", text) {

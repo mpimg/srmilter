@@ -134,24 +134,55 @@ struct MailInfo<'a> {
     msg: mail_parser::Message<'a>,
 }
 
+#[allow(dead_code)]
+impl MailInfo<'_> {
+    fn get_from_address(&self) -> &str {
+        self.msg
+            .header(HeaderName::From)
+            .and_then(|v| v.as_address())
+            .and_then(|v| v.as_list())
+            .and_then(|v| v.first())
+            .and_then(|v| v.address())
+            .unwrap_or("")
+    }
+    fn get_subject(&self) -> &str {
+        self.msg
+            .header(HeaderName::Subject)
+            .and_then(|v| v.as_text())
+            .unwrap_or("")
+    }
+    fn get_sender(&self) -> &str {
+        &self.sender
+    }
+    fn get_text(&self) -> std::borrow::Cow<str> {
+        self.msg.body_text(0).unwrap_or(Borrowed(""))
+    }
+    fn get_recipients(&self) -> &Vec<String> {
+        &self.recipients
+    }
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+    fn get_message(&self) -> &mail_parser::Message {
+        &self.msg
+    }
+    fn get_other_header<'a>(&'a self, name: &'a str) -> &'a str {
+        self.msg
+            .header(HeaderName::Other(Borrowed(name)))
+            .and_then(|v| v.as_text())
+            .unwrap_or("")
+    }
+}
+
 #[allow(unused_variables, unused_macros)]
 fn classify_parsed_mail(mail_info: &MailInfo) -> ClassifyResult {
-    let msg = &mail_info.msg;
-    let from_address = msg
-        .header(HeaderName::From)
-        .and_then(|v| v.as_address())
-        .and_then(|v| v.as_list())
-        .and_then(|v| v.first())
-        .and_then(|v| v.address())
-        .unwrap_or("");
-    let subject = msg
-        .header(HeaderName::Subject)
-        .and_then(|v| v.as_text())
-        .unwrap_or("");
-    let sender = &mail_info.sender;
-    let recipients = &mail_info.recipients;
-    let id = &mail_info.id;
-    let text = &msg.body_text(0).unwrap_or(std::borrow::Cow::Borrowed(""));
+    let msg = mail_info.get_message();
+    let from_address = mail_info.get_from_address();
+    let subject = mail_info.get_subject();
+    let sender = mail_info.get_sender();
+    let recipients = mail_info.get_recipients();
+    let id = mail_info.get_id();
+    let text = &mail_info.get_text();
 
     macro_rules! log {
         ($($args:tt)*) => {
