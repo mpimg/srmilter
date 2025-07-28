@@ -1,2 +1,2 @@
 target
-src/srmilter.classify.rs
+src/classify.rs

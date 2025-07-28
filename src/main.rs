@@ -230,7 +230,7 @@ fn classify_parsed_mail(mail_info: &MailInfo) -> ClassifyResult {
     let id = mail_info.get_id();
     let text = &mail_info.get_text();
 
-    include!("srmilter.classify.rs"); // included code might do early return
+    include!("classify.rs"); // included code might do early return
     accept!(mail_info, "default");
 }
 
