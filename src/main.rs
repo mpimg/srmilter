@@ -1,3 +1,5 @@
+#![allow(unused_macros)]
+
 // https://codeberg.org/glts/indymilter
 // https://www.postfix.org/MILTER_README.html
 // https://github.com/emersion/go-milter/blob/master/milter-protocol.txt
@@ -174,7 +176,51 @@ impl MailInfo<'_> {
     }
 }
 
-#[allow(unused_variables, unused_macros)]
+macro_rules! log {
+    ($mi: expr, $($args:tt)*) => {
+        println!("{}: {}", $mi.id, format_args!($($args)*));
+    }
+}
+
+macro_rules! _result {
+    ($mi: expr, $result_val: expr $(,)?) => {
+        log!($mi, "{} (by {} line {})", $result_val.uc(), file!(), line!());
+        return $result_val;
+    };
+    ($mi: expr, $result_val: expr, $($args:tt)* ) => {
+        log!($mi, "{} ({})", $result_val.uc(), format_args!($($args)*));
+        return $result_val;
+    }
+}
+
+macro_rules! accept {
+    ($mi: expr, $($args:tt)*) => {
+        _result!($mi, ClassifyResult::Accept, $($args)*)
+    };
+    ($mi: expr) => {
+        _result!($mi, ClassifyResult::Accept)
+    }
+}
+
+macro_rules! quarantine {
+    ($mi: expr, $($args:tt)*) => {
+        _result!($mi, ClassifyResult::Quarantine, $($args)*)
+    };
+    ($mi: expr) => {
+        _result!($mi, ClassifyResult::Quarantine)
+    }
+}
+
+macro_rules! reject {
+    ($mi: expr, $($args:tt)*) => {
+        _result!($mi, ClassifyResult::Reject, $($args)*)
+    };
+    ($mi: expr) => {
+        _result!($mi, ClassifyResult::Reject)
+    }
+}
+
+#[allow(unused_variables)]
 fn classify_parsed_mail(mail_info: &MailInfo) -> ClassifyResult {
     let msg = mail_info.get_message();
     let from_address = mail_info.get_from_address();
@@ -183,50 +229,6 @@ fn classify_parsed_mail(mail_info: &MailInfo) -> ClassifyResult {
     let recipients = mail_info.get_recipients();
     let id = mail_info.get_id();
     let text = &mail_info.get_text();
-
-    macro_rules! log {
-        ($mi: expr, $($args:tt)*) => {
-            println!("{}: {}", $mi.id, format_args!($($args)*));
-        }
-    }
-
-    macro_rules! _result {
-        ($mi: expr, $result_val: expr $(,)?) => {
-            log!($mi, "{} (by {} line {})", $result_val.uc(), file!(), line!());
-            return $result_val;
-        };
-        ($mi: expr, $result_val: expr, $($args:tt)* ) => {
-            log!($mi, "{} ({})", $result_val.uc(), format_args!($($args)*));
-            return $result_val;
-        }
-    }
-
-    macro_rules! accept {
-        ($mi: expr, $($args:tt)*) => {
-            _result!($mi, ClassifyResult::Accept, $($args)*)
-        };
-        ($mi: expr) => {
-            _result!($mi, ClassifyResult::Accept)
-        }
-    }
-
-    macro_rules! quarantine {
-        ($mi: expr, $($args:tt)*) => {
-            _result!($mi, ClassifyResult::Quarantine, $($args)*)
-        };
-        ($mi: expr) => {
-            _result!($mi, ClassifyResult::Quarantine)
-        }
-    }
-
-    macro_rules! reject {
-        ($mi: expr, $($args:tt)*) => {
-            _result!($mi, ClassifyResult::Reject, $($args)*)
-        };
-        ($mi: expr) => {
-            _result!($mi, ClassifyResult::Reject)
-        }
-    }
 
     include!("srmilter.classify.rs"); // included code might do early return
     accept!(mail_info, "default");
