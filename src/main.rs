@@ -180,6 +180,16 @@ impl MailInfo<'_> {
             .and_then(|v| v.parse::<f32>().ok())
             .unwrap_or(0f32)
     }
+
+    fn get_header_sender_address(&self) -> &str {
+        self.msg
+            .header(HeaderName::Sender)
+            .and_then(|v| v.as_address())
+            .and_then(|v| v.as_list())
+            .and_then(|v| v.first())
+            .and_then(|v| v.address())
+            .unwrap_or("")
+    }
 }
 
 macro_rules! log {
