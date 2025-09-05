@@ -267,6 +267,26 @@ fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<
     Ok(())
 }
 
+fn cmd_dump(filename: &Path) -> Result<()> {
+    let mail_buffer = fs::read(filename)?;
+    let r = MessageParser::default().parse(&mail_buffer);
+    match r {
+        Some(msg) => {
+            for part in msg.parts {
+                println!("===============================");
+                for h in &part.headers {
+                    println!("{}: {:?}", h.name, &h.value);
+                }
+                if let Some(text) = part.text_contents() {
+                    println!("{}", text.trim());
+                }
+            }
+            Ok(())
+        }
+        None => Err("parse error".into()),
+    }
+}
+
 fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write) -> Result<()> {
     let mut data_read_buffer: Vec<u8> = Vec::with_capacity(4096);
     let data_write_buffer: Vec<u8> = Vec::with_capacity(64);
@@ -495,6 +515,9 @@ enum Command {
     Daemon {
         address: Option<String>,
     },
+    Dump {
+        filename: PathBuf,
+    },
 }
 
 fn xmain() -> Result<()> {
@@ -509,8 +532,8 @@ fn xmain() -> Result<()> {
             sender.unwrap_or_default(),
             recipients.unwrap_or_default(),
         ),
-
         Command::Daemon { address } => daemon(&address.unwrap_or("0.0.0.0:7044".to_string())),
+        Command::Dump { filename } => cmd_dump(&filename),
     }
 }
 
