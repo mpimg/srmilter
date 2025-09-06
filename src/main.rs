@@ -146,6 +146,15 @@ impl MailInfo<'_> {
             .and_then(|v| v.address())
             .unwrap_or("")
     }
+    fn get_from_name(&self) -> &str {
+        self.msg
+            .header(HeaderName::From)
+            .and_then(|v| v.as_address())
+            .and_then(|v| v.as_list())
+            .and_then(|v| v.first())
+            .and_then(|v| v.name())
+            .unwrap_or("")
+    }
     fn get_subject(&self) -> &str {
         self.msg
             .header(HeaderName::Subject)
