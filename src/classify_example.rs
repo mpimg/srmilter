@@ -20,11 +20,13 @@ use lazy_regex::regex_is_match;
 pub fn classify(mail_info: &MailInfo) -> ClassifyResult {
     let msg = mail_info.get_message();
     let from_address = mail_info.get_from_address();
+    let from_name = mail_info.get_from_name();
     let subject = mail_info.get_subject();
     let sender = mail_info.get_sender();
     let recipients = mail_info.get_recipients();
     let id = mail_info.get_id();
     let text = &mail_info.get_text();
+    let spam_score = mail_info.get_spam_score();
 
     if regex_is_match!("Täääst", subject) {
         quarantine!(mail_info);
