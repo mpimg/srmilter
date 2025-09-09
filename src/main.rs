@@ -103,8 +103,21 @@ fn read_zbytes<'a>(reader: &mut impl BufRead, buffer: &'a mut Vec<u8>) -> Result
     Ok(vec_trim_zero(buffer))
 }
 
+fn anglestrip(s: &[u8]) -> &[u8] {
+    if s.len() > 1 && s[0] == b'<' && s[s.len() - 1] == b'>' {
+        &s[1..s.len() - 1]
+    } else {
+        s
+    }
+}
+
 fn read_zstring(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
     Ok(String::from_utf8_lossy(read_zbytes(reader, buffer)?).to_string())
+}
+
+fn read_zstring_anglestripped(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
+    let s = anglestrip(read_zbytes(reader, buffer)?);
+    Ok(String::from_utf8_lossy(s).to_string())
 }
 
 #[allow(dead_code)]
@@ -360,7 +373,8 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 // no reply to SMIC_MACRO
             }
             'M' => {
-                mail_info.sender = read_zstring(&mut data_reader, &mut string_buffer)?;
+                mail_info.sender =
+                    read_zstring_anglestripped(&mut data_reader, &mut string_buffer)?;
                 // possibly followed by more strings (ESMPT arguments)
                 // reply disabled with SMFIP_NR_MAIL
             }
@@ -621,4 +635,36 @@ fn test_read_cstr() {
     assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test2");
     assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test3");
     assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "");
+}
+
+#[test]
+fn test_senderparse() {
+    let input = b"Test1\0Test2\0Test3";
+    let mut reader = Cursor::new(&input);
+    let mut buffer: Vec<u8> = Vec::new();
+    assert_eq!(
+        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
+        "Test1"
+    );
+    let input = b"<Test1>\0Test2\0Test3";
+    let mut reader = Cursor::new(&input);
+    let mut buffer: Vec<u8> = Vec::new();
+    assert_eq!(
+        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
+        "Test1"
+    );
+    let input = b"";
+    let mut reader = Cursor::new(&input);
+    let mut buffer: Vec<u8> = Vec::new();
+    assert_eq!(
+        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
+        ""
+    );
+    let input = b"<bla";
+    let mut reader = Cursor::new(&input);
+    let mut buffer: Vec<u8> = Vec::new();
+    assert_eq!(
+        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
+        "<bla"
+    );
 }
