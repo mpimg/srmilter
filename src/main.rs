@@ -379,9 +379,10 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 // reply disabled with SMFIP_NR_MAIL
             }
             'R' => {
-                mail_info
-                    .recipients
-                    .push(read_zstring(&mut data_reader, &mut string_buffer)?);
+                mail_info.recipients.push(read_zstring_anglestripped(
+                    &mut data_reader,
+                    &mut string_buffer,
+                )?);
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
