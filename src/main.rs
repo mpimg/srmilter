@@ -183,6 +183,13 @@ impl MailInfo<'_> {
     fn get_recipients(&self) -> &Vec<String> {
         &self.recipients
     }
+    fn get_only_recipient(&self) -> &str {
+        if self.recipients.len() == 1 {
+            &self.recipients[0]
+        } else {
+            ""
+        }
+    }
     fn get_id(&self) -> &str {
         &self.id
     }
@@ -668,4 +675,14 @@ fn test_senderparse() {
         read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
         "<bla"
     );
+}
+
+#[test]
+fn test_only_recipients() {
+    let mut mail_info = MailInfo::default();
+    assert_eq!(mail_info.get_only_recipient(), "");
+    mail_info.recipients.push("foobar1".to_string());
+    assert_eq!(mail_info.get_only_recipient(), "foobar1");
+    mail_info.recipients.push("foobar2".to_string());
+    assert_eq!(mail_info.get_only_recipient(), "");
 }
