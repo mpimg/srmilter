@@ -177,7 +177,7 @@ impl MailInfo<'_> {
     fn get_sender(&self) -> &str {
         &self.sender
     }
-    fn get_text(&self) -> std::borrow::Cow<str> {
+    fn get_text(&self) -> std::borrow::Cow<'_, str> {
         self.msg.body_text(0).unwrap_or(Borrowed(""))
     }
     fn get_recipients(&self) -> &Vec<String> {
@@ -193,7 +193,7 @@ impl MailInfo<'_> {
     fn get_id(&self) -> &str {
         &self.id
     }
-    fn get_message(&self) -> &mail_parser::Message {
+    fn get_message(&self) -> &mail_parser::Message<'_> {
         &self.msg
     }
     fn get_other_header<'a>(&'a self, name: &'a str) -> &'a str {
