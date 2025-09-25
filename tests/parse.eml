@@ -1,0 +1,66 @@
+Return-Path: <codeberg@codeberg.org>
+Received: from mx.molgen.mpg.de (mx.molgen.mpg.de [141.14.17.8])
+	 by tldr.molgen.mpg.de (Cyrus 2.5.3) with LMTPA;
+	 Wed, 24 Sep 2025 19:43:04 +0200
+X-Sieve: CMU Sieve 2.4
+Received: from a1241.mx.srv.dfn.de (a1241.mx.srv.dfn.de [194.95.232.62])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mx2.molgen.mpg.de (Postfix) with ESMTPS id 1AD616028F37A
+	for <buczek@molgen.mpg.de>; Wed, 24 Sep 2025 19:43:03 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at mgw6-han.srv.dfn.de
+Authentication-Results: mgw6-han.srv.dfn.de (amavis); dkim=pass (2048-bit key)
+ header.d=codeberg.org
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=193.26.156.135; helo=smtp.codeberg.org; envelope-from=codeberg@codeberg.org; receiver=<UNKNOWN> 
+Received: from smtp.codeberg.org (smtp.codeberg.org [193.26.156.135])
+	by a1241.mx.srv.dfn.de (Postfix) with ESMTPS id 34F4232012C
+	for <buczek@molgen.mpg.de>; Wed, 24 Sep 2025 19:43:02 +0200 (CEST)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=codeberg.org;
+	s=default; t=1758735765;
+	bh=xj0ezucAvOaejLWxRueTGB1BFCsecLmlM1GJUSQSS1k=;
+	h=To:Subject:From:Date:From;
+	b=ixliUluTfchApzKGjpTCKb2AorpIDpRCg2brUEzgunb0DEdIZCOTd+UTb/xuGTdIR
+	 +r8omuOpl0SwM8cwq9Lex7a/8i37v99293pvGz0e/OxOYzn3rDPZvPjRbG3KtQUWCe
+	 YaLeFnOhcyD1RoKlEk4jHdD1/+tuM5ui8y7nIeS2bH8NNSBPNQYcem6nZh0NbO3O/F
+	 xD6ZZ5OM5VhVrvZb1Nam+Z95QUz0P++MruP53h5V4B0Twa6YXt816F6tCMDYJQJILf
+	 6q6V31kpu3SllblNA+qEoIH22CizFvceIsRrCdPwDQtcdQeR7eNbeH7KHq4YcwA4iw
+	 1KCzwkpBk5U7Q==
+Received: by smtp.codeberg.org (Postfix, from userid 0)
+	id 79310166005; Wed, 24 Sep 2025 19:42:45 +0200 (CEST)
+To: buczek@molgen.mpg.de
+Subject: New privacy policy at codeberg.org
+MIME-Version: 1.0
+Content-type: text/plain; charset=utf8
+From: Codeberg <codeberg@codeberg.org>
+Message-Id: <20250924174245.79310166005@smtp.codeberg.org>
+Date: Wed, 24 Sep 2025 19:42:45 +0200 (CEST)
+
+
+Hi buczek,
+
+for the first time since Codeberg's launch in 2019, we are updating our Privacy Policy. With this update, we want to strengthen your rights that you have as a user of Codeberg. We hope that you will feel the same way. Our new version aims to achieve the following goals:
+- Continue to ensure full GDPR compliance
+- Be more clear and transparent
+- Place stricter limitations on how Codeberg's services and operators may process your data
+- Include additional information on how we handle personal data related to the activities of our association (this only affects present and past members of Codeberg e. V.), as well as who may handle the data of our association's present and past members.
+
+Read our new Privacy Policy here: https://codeberg.org/Codeberg/org/src/commit/2bad44ef35bfc2e154d2c3168bf44d1be739528d/PrivacyPolicy.md
+
+As a user of Codeberg.org, we inform you that the new Privacy Policy will take effect on **October 2nd, 2025**. If you continue to use Codeberg after this date, the new terms will apply automatically. If you disagree with the new terms, you can delete your Codeberg.org account here: https://codeberg.org/user/settings/account
+
+Codeberg is a non-profit association registered in Berlin. Unlike traditional online platforms, we have neither an interest in selling your data, nor do we have an incentive to do so. We are thankful for your continued trust and hope to continue serving you and your open source projects for many years to come.
+
+Thank you for being a user of Codeberg!
+
+Best,
+Your Codeberg e. V. Team
+--
+You are receiving this email because you have a registered account at
+https://codeberg.org with username buczek. If you are no longer
+interested in using Codeberg.org, plesae log in with your account
+and close it.
+
+Codeberg e.V. – Arminiusstraße 2-4 – 10551 Berlin – Germany
+Registered at registration court Amtsgericht Charlottenburg VR36929.
+
