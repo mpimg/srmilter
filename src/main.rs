@@ -9,7 +9,7 @@ use clap::Parser;
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use socket2::{Domain, Protocol, Socket, Type};
-use std::borrow::Cow::Borrowed;
+use srmilter::MailInfo;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use mail_parser::{HeaderName, MessageParser};
+use mail_parser::MessageParser;
 
 #[allow(dead_code)]
 mod constants {
@@ -135,105 +135,6 @@ impl ClassifyResult {
             ClassifyResult::Reject => "REJECT",
             ClassifyResult::Quarantine => "QUARANTINE",
         }
-    }
-}
-
-#[derive(Default)]
-struct MailInfo<'a> {
-    sender: String,
-    recipients: Vec<String>,
-    macros: HashMap<String, String>,
-    id: String, // postfix queue ident
-    mail_buffer: Vec<u8>,
-    msg: mail_parser::Message<'a>,
-}
-
-#[allow(dead_code)]
-impl MailInfo<'_> {
-    fn get_from_address(&self) -> &str {
-        self.msg
-            .header(HeaderName::From)
-            .and_then(|v| v.as_address())
-            .and_then(|v| v.as_list())
-            .and_then(|v| v.first())
-            .and_then(|v| v.address())
-            .unwrap_or("")
-    }
-    fn get_from_name(&self) -> &str {
-        self.msg
-            .header(HeaderName::From)
-            .and_then(|v| v.as_address())
-            .and_then(|v| v.as_list())
-            .and_then(|v| v.first())
-            .and_then(|v| v.name())
-            .unwrap_or("")
-    }
-    fn get_subject(&self) -> &str {
-        self.msg
-            .header(HeaderName::Subject)
-            .and_then(|v| v.as_text())
-            .unwrap_or("")
-    }
-    fn get_sender(&self) -> &str {
-        &self.sender
-    }
-    fn get_text(&self) -> std::borrow::Cow<'_, str> {
-        self.msg.body_text(0).unwrap_or(Borrowed(""))
-    }
-    fn get_recipients(&self) -> &Vec<String> {
-        &self.recipients
-    }
-    fn get_only_recipient(&self) -> &str {
-        if self.recipients.len() == 1 {
-            &self.recipients[0]
-        } else {
-            ""
-        }
-    }
-    fn get_id(&self) -> &str {
-        &self.id
-    }
-    fn get_message(&self) -> &mail_parser::Message<'_> {
-        &self.msg
-    }
-    fn get_other_header<'a>(&'a self, name: &'a str) -> &'a str {
-        self.msg
-            .header(HeaderName::Other(Borrowed(name)))
-            .and_then(|v| v.as_text())
-            .unwrap_or("")
-    }
-    fn get_spam_score(&self) -> f32 {
-        self.msg
-            .header(HeaderName::Other(Borrowed("X-Spam-Score")))
-            .and_then(|v| v.as_text())
-            .and_then(|v| v.parse::<f32>().ok())
-            .unwrap_or(0f32)
-    }
-
-    fn get_header_sender_address(&self) -> &str {
-        self.msg
-            .header(HeaderName::Sender)
-            .and_then(|v| v.as_address())
-            .and_then(|v| v.as_list())
-            .and_then(|v| v.first())
-            .and_then(|v| v.address())
-            .unwrap_or("")
-    }
-    fn get_remote_name(&self, good_domain: &str) -> String {
-        self.msg
-            .header_values(HeaderName::Received)
-            .find_map(|h| {
-                if let mail_parser::HeaderValue::Received(r) = h {
-                    if let Some(mail_parser::Host::Name(by)) = &r.by {
-                        if by.ends_with(good_domain) {
-                            let from_name = r.from.as_ref().map(|v| v.to_string());
-                            return from_name;
-                        }
-                    }
-                }
-                None
-            })
-            .unwrap_or("".to_string())
     }
 }
 
