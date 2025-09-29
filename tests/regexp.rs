@@ -1,10 +1,10 @@
 use lazy_regex::regex_is_match;
 
 #[test]
-fn test_bla() {
-
+fn test_wordpress() {
     let subject = "[bla] ﺖﻓﺎﺼﻴﻟ ﺖﺴﺠﻴﻟ ﺎﻟﺪﺧﻮﻟ";
-    let r = regex_is_match!(r"(?x)
+    let r = regex_is_match!(
+        r"(?x)
         ^\[.+\]\ (
             Anmeldedaten
             | Login\ Details
@@ -13,7 +13,9 @@ fn test_bla() {
             | Detalle\ de\ Acceso
             | ﺖﻓﺎﺼﻴﻟ\ ﺖﺴﺠﻴﻟ\ ﺎﻟﺪﺧﻮﻟ
             | placeholder
-        )$", subject);
+        )$",
+        subject
+    );
     assert_eq!(r, true);
 
 }
