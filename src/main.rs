@@ -686,3 +686,32 @@ fn test_only_recipients() {
     mail_info.recipients.push("foobar2".to_string());
     assert_eq!(mail_info.get_only_recipient(), "");
 }
+
+#[test]
+fn test_parse() {
+    let mail_buffer = std::fs::read("tests/parse_001.eml").unwrap();
+    let sender = "sender".to_string();
+    let recipients = vec!["recipient".to_string()];
+    let id = "test".to_string();
+    let mut mail_info = MailInfo {
+        sender,
+        recipients,
+        mail_buffer,
+        id,
+        ..Default::default()
+    };
+    mail_info.msg = MessageParser::default()
+        .parse(&mail_info.mail_buffer)
+        .unwrap();
+    assert_eq!(mail_info.get_sender(), "sender");
+    assert_eq!(mail_info.get_only_recipient(), "recipient");
+    assert_eq!(mail_info.get_from_address(), "donald.buczek@gmail.com");
+    assert_eq!(mail_info.get_from_name(), "Donald Buczek");
+    assert_eq!(mail_info.get_header_sender_address(), "");
+    assert_eq!(mail_info.get_spam_score(), 0f32);
+    assert_eq!(
+        mail_info.get_subject(),
+        "Test mit einer relativ langen Header-Zeile, die hoffentlich zum Wrapping führt und dann auch noch mit Umlauten und Emoji 😀"
+    );
+    assert_eq!(mail_info.get_text(), "😘\r\n");
+}
