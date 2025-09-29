@@ -219,6 +219,22 @@ impl MailInfo<'_> {
             .and_then(|v| v.address())
             .unwrap_or("")
     }
+    fn get_remote_name(&self, good_domain: &str) -> String {
+        self.msg
+            .header_values(HeaderName::Received)
+            .find_map(|h| {
+                if let mail_parser::HeaderValue::Received(r) = h {
+                    if let Some(mail_parser::Host::Name(by)) = &r.by {
+                        if by.ends_with(good_domain) {
+                            let from_name = r.from.as_ref().map(|v| v.to_string());
+                            return from_name;
+                        }
+                    }
+                }
+                None
+            })
+            .unwrap_or("".to_string())
+    }
 }
 
 macro_rules! log {
@@ -714,4 +730,8 @@ fn test_parse() {
         "Test mit einer relativ langen Header-Zeile, die hoffentlich zum Wrapping führt und dann auch noch mit Umlauten und Emoji 😀"
     );
     assert_eq!(mail_info.get_text(), "😘\r\n");
+    assert_eq!(
+        mail_info.get_remote_name(".mx.srv.dfn.de"),
+        "mail-lj1-f170.google.com"
+    );
 }
