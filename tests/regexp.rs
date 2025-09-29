@@ -17,5 +17,4 @@ fn test_wordpress() {
         subject
     );
     assert_eq!(r, true);
-
 }
