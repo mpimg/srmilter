@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
 use std::net::{SocketAddr, TcpStream};
+#[cfg(feature = "systemd")]
 use std::os::fd::FromRawFd;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -411,6 +412,7 @@ fn install_signal_handler() {
 }
 
 fn daemon(address: &str) -> Result<()> {
+    #[cfg(feature = "systemd")]
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
         None => {
@@ -421,6 +423,16 @@ fn daemon(address: &str) -> Result<()> {
             socket.listen(1)?;
             socket
         }
+    };
+
+    #[cfg(not(feature = "systemd"))]
+    let listen_socket = {
+        let address: SocketAddr = address.parse()?;
+        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+        socket.set_reuse_address(true)?;
+        socket.bind(&address.into())?;
+        socket.listen(1)?;
+        socket
     };
 
     install_signal_handler();
