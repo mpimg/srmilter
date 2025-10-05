@@ -1,22 +1,24 @@
 use mail_parser::MessageParser;
-use srmilter::MailInfo;
+use srmilter::{MailInfo, MailInfoStorage};
 
 #[test]
 fn parse_001() {
-    let mail_buffer = std::fs::read("tests/parse_001.eml").unwrap();
-    let sender = "sender".to_string();
-    let recipients = vec!["recipient".to_string()];
-    let id = "test".to_string();
-    let mut mail_info = MailInfo {
-        sender,
-        recipients,
-        mail_buffer,
-        id,
+    let mut storage = MailInfoStorage::default();
+    storage.mail_buffer = std::fs::read("tests/parse_001.eml").unwrap();
+    storage.sender = "sender".to_string();
+    storage.recipients = vec!["recipient".to_string()];
+    storage.id = "test".to_string();
+
+    let mail_info = MailInfo {
+        sender: storage.sender,
+        recipients: storage.recipients,
+        id: storage.id,
+        msg: MessageParser::default()
+            .parse(&storage.mail_buffer)
+            .unwrap(),
         ..Default::default()
     };
-    mail_info.msg = MessageParser::default()
-        .parse(&mail_info.mail_buffer)
-        .unwrap();
+
     assert_eq!(mail_info.get_sender(), "sender");
     assert_eq!(mail_info.get_only_recipient(), "recipient");
     assert_eq!(mail_info.get_from_address(), "donald.buczek@gmail.com");
@@ -43,13 +45,11 @@ fn parse_002() {
     let mut mail_info = MailInfo {
         sender,
         recipients,
-        mail_buffer,
         id,
         ..Default::default()
     };
-    let r = MessageParser::default().parse(&mail_info.mail_buffer);
+    let r = MessageParser::default().parse(&mail_buffer);
     mail_info.msg = r.unwrap();
     dbg!(mail_info.get_sender());
     dbg!(mail_info.get_subject());
 }
-

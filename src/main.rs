@@ -9,7 +9,7 @@ use clap::Parser;
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use socket2::{Domain, Protocol, Socket, Type};
-use srmilter::MailInfo;
+use srmilter::{MailInfo, MailInfoStorage};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
@@ -185,17 +185,23 @@ macro_rules! reject {
 
 mod classify;
 
-fn classify_mail<'a>(mail_info: &'a mut MailInfo<'a>) -> ClassifyResult {
-    let r = MessageParser::default().parse(&mail_info.mail_buffer);
+fn classify_mail<'a>(storage: &MailInfoStorage) -> ClassifyResult {
+    let r = MessageParser::default().parse(&storage.mail_buffer);
     match r {
         Some(msg) => {
-            mail_info.msg = msg;
-            classify::classify(mail_info)
+            let mail_info = MailInfo {
+                sender: storage.sender.clone(),
+                recipients: storage.recipients.clone(),
+                id: storage.id.clone(),
+                msg,
+                ..Default::default()
+            };
+            classify::classify(&mail_info)
         }
         None => {
             println!(
                 "{}: ACCEPT (because of failure to parse message)",
-                mail_info.id,
+                storage.id,
             );
             ClassifyResult::Accept
         }
@@ -203,14 +209,14 @@ fn classify_mail<'a>(mail_info: &'a mut MailInfo<'a>) -> ClassifyResult {
 }
 
 fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<()> {
-    let mut mail_info = MailInfo {
+    let storage = MailInfoStorage {
         sender,
         recipients,
         mail_buffer: fs::read(filename)?,
         id: "test".to_string(),
         ..Default::default()
     };
-    classify_mail(&mut mail_info);
+    classify_mail(&storage);
     Ok(())
 }
 
@@ -240,7 +246,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
     let mut writer = Cursor::new(data_write_buffer);
 
     let mut connect_macros: HashMap<String, String> = HashMap::new();
-    let mut mail_info = MailInfo::default();
+    let mut storage = MailInfoStorage::default();
 
     let mut string_buffer = Vec::<u8>::new();
 
@@ -285,7 +291,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 let for_cmd = read_char(&mut data_reader)?;
                 let macro_map = match for_cmd {
                     'C' => &mut connect_macros,
-                    _ => &mut mail_info.macros,
+                    _ => &mut storage.macros,
                 };
                 loop {
                     let name = read_zstring(&mut data_reader, &mut string_buffer)?;
@@ -298,50 +304,49 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 // no reply to SMIC_MACRO
             }
             'M' => {
-                mail_info.sender =
-                    read_zstring_anglestripped(&mut data_reader, &mut string_buffer)?;
+                storage.sender = read_zstring_anglestripped(&mut data_reader, &mut string_buffer)?;
                 // possibly followed by more strings (ESMPT arguments)
                 // reply disabled with SMFIP_NR_MAIL
             }
             'R' => {
-                mail_info.recipients.push(read_zstring_anglestripped(
+                storage.recipients.push(read_zstring_anglestripped(
                     &mut data_reader,
                     &mut string_buffer,
                 )?);
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
-                mail_info
+                storage
                     .mail_buffer
                     .extend_from_slice(read_zbytes(&mut data_reader, &mut string_buffer)?);
-                mail_info.mail_buffer.extend_from_slice(b": ");
-                mail_info
+                storage.mail_buffer.extend_from_slice(b": ");
+                storage
                     .mail_buffer
                     .extend_from_slice(read_zbytes(&mut data_reader, &mut string_buffer)?);
-                mail_info.mail_buffer.extend_from_slice(b"\r\n");
+                storage.mail_buffer.extend_from_slice(b"\r\n");
                 // reply disabled with SMFIP_NR_HDR
             }
             'N' => {
-                mail_info.mail_buffer.extend_from_slice(b"\r\n");
+                storage.mail_buffer.extend_from_slice(b"\r\n");
                 // reply disabled with SMFIP_NR_EOH
             }
             'B' => {
                 let mut bdata = Vec::new();
                 data_reader.read_to_end(&mut bdata)?;
-                mail_info.mail_buffer.extend_from_slice(&bdata[..]);
+                storage.mail_buffer.extend_from_slice(&bdata[..]);
                 // reply disabled with SMFIP_NR_BODY
             }
             'E' => {
                 for (key, value) in &connect_macros {
-                    mail_info.macros.insert(key.clone(), value.clone());
+                    storage.macros.insert(key.clone(), value.clone());
                 }
-                mail_info.id = mail_info
+                storage.id = storage
                     .macros
                     .get("i")
                     .map(AsRef::as_ref)
                     .unwrap_or("-")
                     .to_string();
-                let result = classify_mail(&mut mail_info);
+                let result = classify_mail(&storage);
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -371,14 +376,14 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                     }
                 };
                 stream_writer.flush()?;
-                mail_info = MailInfo::default();
+                storage = MailInfoStorage::default();
             }
             'Q' => {
                 // no reply to SMFIC_QUIT
                 break;
             }
             'A' => {
-                mail_info = MailInfo::default();
+                storage = MailInfoStorage::default();
                 // no reply to SMFIC_ABORT
             }
             _ => {

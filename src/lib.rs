@@ -2,6 +2,15 @@ use mail_parser::HeaderName;
 use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
 
+#[derive(Default)]
+pub struct MailInfoStorage {
+    pub sender: String,
+    pub recipients: Vec<String>,
+    pub macros: HashMap<String, String>,
+    pub id: String, // postfix queue ident
+    pub mail_buffer: Vec<u8>,
+}
+
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct MailInfo<'a> {
@@ -9,7 +18,6 @@ pub struct MailInfo<'a> {
     pub recipients: Vec<String>,
     pub macros: HashMap<String, String>,
     pub id: String, // postfix queue ident
-    pub mail_buffer: Vec<u8>,
     pub msg: mail_parser::Message<'a>,
 }
 
