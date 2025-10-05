@@ -10,13 +10,10 @@ fn parse_001() {
     storage.id = "test".to_string();
 
     let mail_info = MailInfo {
-        sender: storage.sender,
-        recipients: storage.recipients,
-        id: storage.id,
+        storage: &storage,
         msg: MessageParser::default()
             .parse(&storage.mail_buffer)
             .unwrap(),
-        ..Default::default()
     };
 
     assert_eq!(mail_info.get_sender(), "sender");
@@ -38,18 +35,17 @@ fn parse_001() {
 
 #[test]
 fn parse_002() {
-    let mail_buffer = std::fs::read("tests/parse_002.eml").unwrap();
-    let sender = "sender".to_string();
-    let recipients = vec!["recipients".to_string()];
-    let id = "test".to_string();
-    let mut mail_info = MailInfo {
-        sender,
-        recipients,
-        id,
-        ..Default::default()
+    let mut storage = MailInfoStorage::default();
+    storage.mail_buffer = std::fs::read("tests/parse_002.eml").unwrap();
+    storage.sender = "sender".to_string();
+    storage.recipients = vec!["recipients".to_string()];
+    storage.id = "test".to_string();
+    let mail_info = MailInfo {
+        storage: &storage,
+        msg: MessageParser::default()
+            .parse(&storage.mail_buffer)
+            .unwrap(),
     };
-    let r = MessageParser::default().parse(&mail_buffer);
-    mail_info.msg = r.unwrap();
     dbg!(mail_info.get_sender());
     dbg!(mail_info.get_subject());
 }

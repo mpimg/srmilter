@@ -141,7 +141,7 @@ impl ClassifyResult {
 
 macro_rules! log {
     ($mi: expr, $($args:tt)*) => {
-        println!("{}: {}", $mi.id, format_args!($($args)*));
+        println!("{}: {}", $mi.storage.id, format_args!($($args)*));
     }
 }
 
@@ -185,17 +185,11 @@ macro_rules! reject {
 
 mod classify;
 
-fn classify_mail<'a>(storage: &MailInfoStorage) -> ClassifyResult {
+fn classify_mail(storage: &MailInfoStorage) -> ClassifyResult {
     let r = MessageParser::default().parse(&storage.mail_buffer);
     match r {
         Some(msg) => {
-            let mail_info = MailInfo {
-                sender: storage.sender.clone(),
-                recipients: storage.recipients.clone(),
-                id: storage.id.clone(),
-                msg,
-                ..Default::default()
-            };
+            let mail_info = MailInfo { storage, msg };
             classify::classify(&mail_info)
         }
         None => {
@@ -613,10 +607,28 @@ fn test_senderparse() {
 
 #[test]
 fn test_only_recipients() {
-    let mut mail_info = MailInfo::default();
-    assert_eq!(mail_info.get_only_recipient(), "");
-    mail_info.recipients.push("foobar1".to_string());
-    assert_eq!(mail_info.get_only_recipient(), "foobar1");
-    mail_info.recipients.push("foobar2".to_string());
-    assert_eq!(mail_info.get_only_recipient(), "");
+    let mut storage = MailInfoStorage::default();
+    {
+        let mail_info = MailInfo {
+            storage: &storage,
+            msg: mail_parser::Message::default(),
+        };
+        assert_eq!(mail_info.get_only_recipient(), "");
+    }
+    storage.recipients.push("foobar1".to_string());
+    {
+        let mail_info = MailInfo {
+            storage: &storage,
+            msg: mail_parser::Message::default(),
+        };
+        assert_eq!(mail_info.get_only_recipient(), "foobar1");
+    }
+    storage.recipients.push("foobar2".to_string());
+    {
+        let mail_info = MailInfo {
+            storage: &storage,
+            msg: mail_parser::Message::default(),
+        };
+        assert_eq!(mail_info.get_only_recipient(), "");
+    }
 }

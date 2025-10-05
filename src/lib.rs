@@ -11,13 +11,8 @@ pub struct MailInfoStorage {
     pub mail_buffer: Vec<u8>,
 }
 
-#[allow(dead_code)]
-#[derive(Default)]
 pub struct MailInfo<'a> {
-    pub sender: String,
-    pub recipients: Vec<String>,
-    pub macros: HashMap<String, String>,
-    pub id: String, // postfix queue ident
+    pub storage: &'a MailInfoStorage,
     pub msg: mail_parser::Message<'a>,
 }
 
@@ -48,23 +43,23 @@ impl MailInfo<'_> {
             .unwrap_or("")
     }
     pub fn get_sender(&self) -> &str {
-        &self.sender
+        &self.storage.sender
     }
     pub fn get_text(&self) -> std::borrow::Cow<'_, str> {
         self.msg.body_text(0).unwrap_or(Borrowed(""))
     }
     pub fn get_recipients(&self) -> &Vec<String> {
-        &self.recipients
+        &self.storage.recipients
     }
     pub fn get_only_recipient(&self) -> &str {
-        if self.recipients.len() == 1 {
-            &self.recipients[0]
+        if self.storage.recipients.len() == 1 {
+            &self.storage.recipients[0]
         } else {
             ""
         }
     }
     pub fn get_id(&self) -> &str {
-        &self.id
+        &self.storage.id
     }
     pub fn get_message(&self) -> &mail_parser::Message<'_> {
         &self.msg
