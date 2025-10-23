@@ -214,18 +214,29 @@ fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<
     Ok(())
 }
 
-fn cmd_dump(filename: &Path) -> Result<()> {
+fn cmd_dump(dump_args: &DumpArgs) -> Result<()> {
+    let (dump_header, dump_body) = match (dump_args.header, dump_args.body) {
+        (false, false) => (true, true),
+        (dump_header, dump_body) => (dump_header, dump_body),
+    };
+    let filename = &dump_args.filename;
     let mail_buffer = fs::read(filename)?;
     let r = MessageParser::default().parse(&mail_buffer);
     match r {
         Some(msg) => {
-            for part in msg.parts {
-                println!("===============================");
-                for h in &part.headers {
-                    println!("{}: {:?}", h.name, &h.value);
+            if dump_header {
+                if let Some(part) = msg.parts.first() {
+                    for h in &part.headers {
+                        println!("{}: {:?}", h.name, &h.value);
+                    }
                 }
-                if let Some(text) = part.text_contents() {
-                    println!("{}", text.trim());
+            }
+            if dump_body {
+                for part in msg.parts {
+                    if let Some(text) = part.text_contents() {
+                        println!("===============================");
+                        println!("{}", text.trim());
+                    }
                 }
             }
             Ok(())
@@ -464,6 +475,15 @@ struct Cli {
     command: Command,
 }
 
+#[derive(clap::Args, Debug)]
+struct DumpArgs {
+    filename: PathBuf,
+    #[arg(short = 'H', long)]
+    header: bool,
+    #[arg(short, long)]
+    body: bool,
+}
+
 #[derive(clap::Subcommand)]
 enum Command {
     Test {
@@ -474,9 +494,7 @@ enum Command {
     Daemon {
         address: Option<String>,
     },
-    Dump {
-        filename: PathBuf,
-    },
+    Dump(DumpArgs),
 }
 
 fn xmain() -> Result<()> {
@@ -492,7 +510,7 @@ fn xmain() -> Result<()> {
             recipients.unwrap_or_default(),
         ),
         Command::Daemon { address } => daemon(&address.unwrap_or("0.0.0.0:7044".to_string())),
-        Command::Dump { filename } => cmd_dump(&filename),
+        Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
 }
 
