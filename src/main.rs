@@ -25,10 +25,6 @@ use mail_parser::MessageParser;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn to_boxed_error<E: std::error::Error + 'static>(error: E) -> Box<dyn std::error::Error> {
-    Box::new(error)
-}
-
 fn read_u32(reader: &mut impl Read) -> Result<u32> {
     let mut buf = [0u8; 4];
     reader.read_exact(&mut buf)?;
@@ -43,7 +39,8 @@ fn read_char(reader: &mut impl Read) -> Result<char> {
 
 fn read_bytes(reader: &mut impl Read, len: usize, data: &mut Vec<u8>) -> Result<()> {
     data.resize(len, 0u8);
-    reader.read_exact(data).map_err(to_boxed_error)
+    reader.read_exact(data)?;
+    Ok(())
 }
 
 fn vec_trim_zero(input: &[u8]) -> &[u8] {
