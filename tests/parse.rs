@@ -46,6 +46,8 @@ fn parse_002() {
             .parse(&storage.mail_buffer)
             .unwrap(),
     };
-    dbg!(mail_info.get_sender());
-    dbg!(mail_info.get_subject());
+    assert_eq!(
+        mail_info.get_subject(),
+        "New privacy policy at codeberg.org"
+    );
 }
