@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use mail_parser::MessageParser;
+use mail_parser::{MessageParser, MimeHeaders};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -172,6 +172,7 @@ fn cmd_dump(dump_args: &DumpArgs) -> Result<()> {
         (false, false) => (true, true),
         (dump_header, dump_body) => (dump_header, dump_body),
     };
+    let dump_html = dump_args.dump_html;
     let filename = &dump_args.filename;
     let mail_buffer = fs::read(filename)?;
     let r = MessageParser::default().parse(&mail_buffer);
@@ -186,9 +187,25 @@ fn cmd_dump(dump_args: &DumpArgs) -> Result<()> {
             }
             if dump_body {
                 for part in msg.parts {
-                    if let Some(text) = part.text_contents() {
-                        println!("===============================");
-                        println!("{}", text.trim());
+                    let (content_type, content_subtype) = {
+                        match part.content_type() {
+                            Some(c) => (c.ctype(), c.subtype().unwrap_or("")),
+                            None => ("???", "???"),
+                        }
+                    };
+                    println!(
+                        "==================================== {}/{}",
+                        content_type, content_subtype
+                    );
+                    if part.is_content_type("text", "plain") {
+                        if let Some(text) = part.text_contents() {
+                            println!("{}", text.trim());
+                        }
+                    } else if dump_html && part.is_content_type("text", "html") {
+                        if let Some(text) = part.text_contents() {
+                            let md = html2md::rewrite_html(text, false);
+                            println!("{}", md);
+                        }
                     }
                 }
             }
@@ -435,6 +452,8 @@ struct DumpArgs {
     header: bool,
     #[arg(short, long)]
     body: bool,
+    #[arg(long = "html")]
+    dump_html: bool,
 }
 
 #[derive(clap::Subcommand)]
