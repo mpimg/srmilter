@@ -40,4 +40,3 @@ pub mod constants {
     pub const SMFIP_MDS_256K: u32 = 0x10000000;
     pub const SMFIP_MDS_1M: u32 = 0x20000000;
 }
-
