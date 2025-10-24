@@ -2,6 +2,8 @@ use mail_parser::HeaderName;
 use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
 
+pub mod milter;
+
 #[derive(Default)]
 pub struct MailInfoStorage {
     pub sender: String,
