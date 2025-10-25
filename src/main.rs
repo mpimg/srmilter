@@ -130,11 +130,9 @@ fn cmd_dump(dump_args: &DumpArgs) -> Result<()> {
     let r = MessageParser::default().parse(&mail_buffer);
     match r {
         Some(msg) => {
-            if dump_header {
-                if let Some(part) = msg.parts.first() {
-                    for h in &part.headers {
-                        println!("{}: {:?}", h.name, &h.value);
-                    }
+            if dump_header && let Some(part) = msg.parts.first() {
+                for h in &part.headers {
+                    println!("{}: {:?}", h.name, &h.value);
                 }
             }
             if dump_body {
@@ -153,11 +151,12 @@ fn cmd_dump(dump_args: &DumpArgs) -> Result<()> {
                         if let Some(text) = part.text_contents() {
                             println!("{}", text.trim());
                         }
-                    } else if dump_html && part.is_content_type("text", "html") {
-                        if let Some(text) = part.text_contents() {
-                            let md = html2md::rewrite_html(text, false);
-                            println!("{}", md);
-                        }
+                    } else if dump_html
+                        && part.is_content_type("text", "html")
+                        && let Some(text) = part.text_contents()
+                    {
+                        let md = html2md::rewrite_html(text, false);
+                        println!("{}", md);
                     }
                 }
             }

@@ -95,13 +95,12 @@ impl MailInfo<'_> {
         self.msg
             .header_values(HeaderName::Received)
             .find_map(|h| {
-                if let mail_parser::HeaderValue::Received(r) = h {
-                    if let Some(mail_parser::Host::Name(by)) = &r.by {
-                        if by.ends_with(good_domain) {
-                            let from_name = r.from.as_ref().map(|v| v.to_string());
-                            return from_name;
-                        }
-                    }
+                if let mail_parser::HeaderValue::Received(r) = h
+                    && let Some(mail_parser::Host::Name(by)) = &r.by
+                    && by.ends_with(good_domain)
+                {
+                    let from_name = r.from.as_ref().map(|v| v.to_string());
+                    return from_name;
                 }
                 None
             })
