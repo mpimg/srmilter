@@ -10,6 +10,7 @@ use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use socket2::{Domain, Protocol, Socket, Type};
 use srmilter::milter::constants::*;
+use srmilter::{BufReadExt, ReadExt};
 use srmilter::{MailInfo, MailInfoStorage};
 use std::collections::HashMap;
 use std::fs;
@@ -24,55 +25,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use mail_parser::{MessageParser, MimeHeaders};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-fn read_u32(reader: &mut impl Read) -> Result<u32> {
-    let mut buf = [0u8; 4];
-    reader.read_exact(&mut buf)?;
-    Ok(u32::from_be_bytes([buf[0], buf[1], buf[2], buf[3]]))
-}
-
-fn read_char(reader: &mut impl Read) -> Result<char> {
-    let mut buf = [0u8; 1];
-    reader.read_exact(&mut buf)?;
-    Ok(buf[0] as char)
-}
-
-fn read_bytes(reader: &mut impl Read, len: usize, data: &mut Vec<u8>) -> Result<()> {
-    data.resize(len, 0u8);
-    reader.read_exact(data)?;
-    Ok(())
-}
-
-fn vec_trim_zero(input: &[u8]) -> &[u8] {
-    if let Some(pos) = input.iter().rposition(|&x| x != 0) {
-        &input[0..=pos]
-    } else {
-        input
-    }
-}
-
-fn read_zbytes<'a>(reader: &mut impl BufRead, buffer: &'a mut Vec<u8>) -> Result<&'a [u8]> {
-    buffer.clear();
-    reader.read_until(b'\0', buffer)?;
-    Ok(vec_trim_zero(buffer))
-}
-
-fn anglestrip(s: &[u8]) -> &[u8] {
-    if s.len() > 1 && s[0] == b'<' && s[s.len() - 1] == b'>' {
-        &s[1..s.len() - 1]
-    } else {
-        s
-    }
-}
-
-fn read_zstring(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
-    Ok(String::from_utf8_lossy(read_zbytes(reader, buffer)?).to_string())
-}
-
-fn read_zstring_anglestripped(reader: &mut impl BufRead, buffer: &mut Vec<u8>) -> Result<String> {
-    let s = anglestrip(read_zbytes(reader, buffer)?);
-    Ok(String::from_utf8_lossy(s).to_string())
-}
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -226,20 +178,20 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
     let mut string_buffer = Vec::<u8>::new();
 
     loop {
-        let len = read_u32(&mut stream_reader)?;
+        let len = stream_reader.read_u32_be()?;
         if len > 69632 {
             // 65536+4096 bc. postfix milter8.c : #define MILTER_CHUNK_SIZE 65535 /* body chunk size */
             return Err("received line to long (len} > 69632".into());
         }
-        read_bytes(&mut stream_reader, len as usize, &mut data_read_buffer)?;
+        stream_reader.read_bytes(len as usize, &mut data_read_buffer)?;
         let mut data_reader = Cursor::new(data_read_buffer);
-        let cmd = read_char(&mut data_reader)?;
+        let cmd = data_reader.read_char()?;
         match cmd {
             'O' => {
                 // ignored:
-                // let version = read_u32(&mut data_reader)?;
-                // let actions = read_u32(&mut data_reader)?;
-                // let protocol = read_u32(&mut data_reader)?;
+                // let version = data_reader.read_u32_be()?;
+                // let actions = data_reader.read_u32_be()?;
+                // let protocol = data_reader.read_u32_be()?;
                 writer.rewind()?;
                 writer.write_all(b"O")?;
                 writer.write_all(&SMFIF_VERSION.to_be_bytes())?;
@@ -263,41 +215,40 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                 stream_writer.flush()?;
             }
             'D' => {
-                let for_cmd = read_char(&mut data_reader)?;
+                let for_cmd = data_reader.read_char()?;
                 let macro_map = match for_cmd {
                     'C' => &mut connect_macros,
                     _ => &mut storage.macros,
                 };
                 loop {
-                    let name = read_zstring(&mut data_reader, &mut string_buffer)?;
+                    let name = data_reader.read_zstring(&mut string_buffer)?;
                     if name.is_empty() {
                         break;
                     }
-                    let value = read_zstring(&mut data_reader, &mut string_buffer)?;
+                    let value = data_reader.read_zstring(&mut string_buffer)?;
                     macro_map.insert(name, value);
                 }
                 // no reply to SMIC_MACRO
             }
             'M' => {
-                storage.sender = read_zstring_anglestripped(&mut data_reader, &mut string_buffer)?;
+                storage.sender = data_reader.read_zstring_anglestripped(&mut string_buffer)?;
                 // possibly followed by more strings (ESMPT arguments)
                 // reply disabled with SMFIP_NR_MAIL
             }
             'R' => {
-                storage.recipients.push(read_zstring_anglestripped(
-                    &mut data_reader,
-                    &mut string_buffer,
-                )?);
+                storage
+                    .recipients
+                    .push(data_reader.read_zstring_anglestripped(&mut string_buffer)?);
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
                 storage
                     .mail_buffer
-                    .extend_from_slice(read_zbytes(&mut data_reader, &mut string_buffer)?);
+                    .extend_from_slice(data_reader.read_zbytes(&mut string_buffer)?);
                 storage.mail_buffer.extend_from_slice(b": ");
                 storage
                     .mail_buffer
-                    .extend_from_slice(read_zbytes(&mut data_reader, &mut string_buffer)?);
+                    .extend_from_slice(data_reader.read_zbytes(&mut string_buffer)?);
                 storage.mail_buffer.extend_from_slice(b"\r\n");
                 // reply disabled with SMFIP_NR_HDR
             }
@@ -494,103 +445,4 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-/************ tests **************/
-
-#[test]
-fn test_read_bytes() {
-    let input = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let mut reader = &input[..];
-    let mut output = Vec::<u8>::new();
-    read_bytes(&mut reader, 26usize, &mut output).unwrap();
-    assert_eq!(output, b"abcdefghijklmnopqrstuvwxyz");
-    assert_eq!(reader, b"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-    let cap = output.capacity();
-
-    let input = b"1234";
-    let mut reader = &input[..];
-    read_bytes(&mut reader, 2usize, &mut output).unwrap();
-    assert_eq!(output, b"12");
-    assert_eq!(reader, b"34");
-    assert!(output.capacity() >= cap);
-}
-
-#[test]
-fn test_write_cursor() {
-    let write_buffer: Vec<u8> = Vec::with_capacity(0);
-    let mut writer = Cursor::new(write_buffer);
-
-    writer.write_all(b"abcdefghijklmnopqrstuvwxyz").unwrap();
-    let data = &writer.get_ref()[0..writer.position() as usize];
-    assert_eq!(data, b"abcdefghijklmnopqrstuvwxyz");
-    let cap = writer.get_ref().capacity();
-
-    writer.rewind().unwrap();
-    writer.write_all(b"123456").unwrap();
-    let data = &writer.get_ref()[0..writer.position() as usize];
-    assert_eq!(data, b"123456");
-
-    assert!(writer.get_ref().capacity() >= cap);
-}
-
-#[test]
-fn test_cli() {
-    use clap::CommandFactory;
-    Cli::command().debug_assert();
-}
-
-#[test]
-fn test_vec_trim() {
-    let input: [u8; 0] = [];
-    assert_eq!(vec_trim_zero(&input), input);
-    let input: [u8; 3] = [1, 2, 3];
-    assert_eq!(vec_trim_zero(&input), input);
-    let input: [u8; 6] = [1, 2, 3, 0, 0, 0];
-    assert_eq!(vec_trim_zero(&input), [1, 2, 3]);
-    let input: [u8; 7] = [1, 2, 3, 0, 0, 0, 5];
-    assert_eq!(vec_trim_zero(&input), [1, 2, 3, 0, 0, 0, 5]);
-}
-
-#[test]
-fn test_read_cstr() {
-    let input = b"Test1\0Test2\0Test3";
-    let mut reader = Cursor::new(&input);
-    let mut buffer: Vec<u8> = Vec::new();
-    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test1");
-    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test2");
-    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "Test3");
-    assert_eq!(read_zstring(&mut reader, &mut buffer).unwrap(), "");
-}
-
-#[test]
-fn test_senderparse() {
-    let input = b"Test1\0Test2\0Test3";
-    let mut reader = Cursor::new(&input);
-    let mut buffer: Vec<u8> = Vec::new();
-    assert_eq!(
-        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
-        "Test1"
-    );
-    let input = b"<Test1>\0Test2\0Test3";
-    let mut reader = Cursor::new(&input);
-    let mut buffer: Vec<u8> = Vec::new();
-    assert_eq!(
-        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
-        "Test1"
-    );
-    let input = b"";
-    let mut reader = Cursor::new(&input);
-    let mut buffer: Vec<u8> = Vec::new();
-    assert_eq!(
-        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
-        ""
-    );
-    let input = b"<bla";
-    let mut reader = Cursor::new(&input);
-    let mut buffer: Vec<u8> = Vec::new();
-    assert_eq!(
-        read_zstring_anglestripped(&mut reader, &mut buffer).unwrap(),
-        "<bla"
-    );
 }

@@ -3,6 +3,9 @@ use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
 
 pub mod milter;
+mod reader_extention;
+
+pub use reader_extention::*;
 
 #[derive(Default)]
 pub struct MailInfoStorage {
