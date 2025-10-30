@@ -41,6 +41,24 @@ impl MailInfo<'_> {
             .and_then(|v| v.name())
             .unwrap_or("")
     }
+    pub fn get_to_address(&self) -> &str {
+        self.msg
+            .header(HeaderName::To)
+            .and_then(|v| v.as_address())
+            .and_then(|v| v.as_list())
+            .and_then(|v| v.first())
+            .and_then(|v| v.address())
+            .unwrap_or("")
+    }
+    pub fn get_to_name(&self) -> &str {
+        self.msg
+            .header(HeaderName::To)
+            .and_then(|v| v.as_address())
+            .and_then(|v| v.as_list())
+            .and_then(|v| v.first())
+            .and_then(|v| v.name())
+            .unwrap_or("")
+    }
     pub fn get_subject(&self) -> &str {
         self.msg
             .header(HeaderName::Subject)

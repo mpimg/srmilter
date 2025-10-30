@@ -22,6 +22,8 @@ fn parse_001() {
     assert_eq!(mail_info.get_from_name(), "Donald Buczek");
     assert_eq!(mail_info.get_header_sender_address(), "");
     assert_eq!(mail_info.get_spam_score(), 0f32);
+    assert_eq!(mail_info.get_to_address(), "emil.erpel@entenhausen.org");
+    assert_eq!(mail_info.get_to_name(), "Emil Erpel");
     assert_eq!(
         mail_info.get_subject(),
         "Test mit einer relativ langen Header-Zeile, die hoffentlich zum Wrapping führt und dann auch noch mit Umlauten und Emoji 😀"
