@@ -2,6 +2,7 @@ use mail_parser::HeaderName;
 use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
 
+mod macros;
 pub mod milter;
 mod reader_extention;
 

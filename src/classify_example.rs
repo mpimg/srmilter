@@ -15,6 +15,7 @@
 use crate::ClassifyResult;
 use crate::MailInfo;
 use lazy_regex::regex_is_match;
+use srmilter::{log, quarantine, accept, _result};
 
 #[allow(unused_variables)]
 pub fn classify(mail_info: &MailInfo) -> ClassifyResult {

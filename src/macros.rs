@@ -1,0 +1,48 @@
+#[macro_export]
+macro_rules! log {
+    ($mi: expr, $($args:tt)*) => {
+        println!("{}: {}", $mi.storage.id, format_args!($($args)*));
+    }
+}
+
+#[macro_export]
+macro_rules! _result {
+    ($mi: expr, $result_val: expr $(,)?) => {
+        log!($mi, "{} (by {} line {})", $result_val.uc(), file!(), line!());
+        return $result_val;
+    };
+    ($mi: expr, $result_val: expr, $($args:tt)* ) => {
+        log!($mi, "{} ({})", $result_val.uc(), format_args!($($args)*));
+        return $result_val;
+    }
+}
+
+#[macro_export]
+macro_rules! accept {
+    ($mi: expr, $($args:tt)*) => {
+        _result!($mi, ClassifyResult::Accept, $($args)*)
+    };
+    ($mi: expr) => {
+        _result!($mi, ClassifyResult::Accept)
+    }
+}
+
+#[macro_export]
+macro_rules! quarantine {
+    ($mi: expr, $($args:tt)*) => {
+        _result!($mi, ClassifyResult::Quarantine, $($args)*)
+    };
+    ($mi: expr) => {
+        _result!($mi, ClassifyResult::Quarantine)
+    }
+}
+
+#[macro_export]
+macro_rules! reject {
+    ($mi: expr, $($args:tt)*) => {
+        _result!($mi, ClassifyResult::Reject, $($args)*)
+    };
+    ($mi: expr) => {
+        _result!($mi, ClassifyResult::Reject)
+    }
+}
