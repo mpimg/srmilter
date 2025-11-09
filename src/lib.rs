@@ -111,18 +111,52 @@ impl MailInfo<'_> {
             .unwrap_or("")
     }
     pub fn get_remote_name(&self, good_domain: &str) -> String {
-        self.msg
-            .header_values(HeaderName::Received)
-            .find_map(|h| {
-                if let mail_parser::HeaderValue::Received(r) = h
-                    && let Some(mail_parser::Host::Name(by)) = &r.by
-                    && by.ends_with(good_domain)
-                {
-                    let from_name = r.from.as_ref().map(|v| v.to_string());
-                    return from_name;
-                }
+        if let Some(r) = self.get_trusted_received_header(good_domain) {
+            let from_name = r
+                .from
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or("".to_string());
+            from_name
+        } else {
+            "".to_string()
+        }
+    }
+    pub fn get_remote(&self, good_domain: &str) -> (String, String, String) {
+        if let Some(r) = self.get_trusted_received_header(good_domain) {
+            let from_name = r
+                .from
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or("".to_string());
+            let from_ip = r
+                .from_ip
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or("".to_string());
+            let from_iprev = r
+                .from_iprev
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or("".to_string());
+            (from_name, from_ip, from_iprev)
+        } else {
+            ("".to_string(), "".to_string(), "".to_string())
+        }
+    }
+    pub fn get_trusted_received_header(
+        &self,
+        good_domain: &str,
+    ) -> Option<&mail_parser::Received<'_>> {
+        self.msg.header_values(HeaderName::Received).find_map(|h| {
+            if let mail_parser::HeaderValue::Received(r) = h
+                && let Some(mail_parser::Host::Name(by)) = &r.by
+                && by.ends_with(good_domain)
+            {
+                Some(r.as_ref())
+            } else {
                 None
-            })
-            .unwrap_or("".to_string())
+            }
+        })
     }
 }

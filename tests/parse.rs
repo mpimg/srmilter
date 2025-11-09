@@ -33,6 +33,14 @@ fn parse_001() {
         mail_info.get_remote_name(".mx.srv.dfn.de"),
         "mail-lj1-f170.google.com"
     );
+    let (name, ip, iprev) = mail_info.get_remote(".mx.srv.dfn.de");
+    assert_eq!(name, "mail-lj1-f170.google.com");
+    assert_eq!(ip, "209.85.208.170");
+    assert_eq!(iprev, "mail-lj1-f170.google.com");
+    let (name, ip, iprev) = mail_info.get_remote(".junk");
+    assert_eq!(name, "");
+    assert_eq!(ip, "");
+    assert_eq!(iprev, "");
 }
 
 #[test]
