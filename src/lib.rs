@@ -112,12 +112,10 @@ impl MailInfo<'_> {
     }
     pub fn get_remote_name(&self, good_domain: &str) -> String {
         if let Some(r) = self.get_trusted_received_header(good_domain) {
-            let from_name = r
-                .from
+            r.from
                 .as_ref()
                 .map(|v| v.to_string())
-                .unwrap_or("".to_string());
-            from_name
+                .unwrap_or("".to_string())
         } else {
             "".to_string()
         }
