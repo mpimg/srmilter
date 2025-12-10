@@ -158,3 +158,21 @@ impl MailInfo<'_> {
         })
     }
 }
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum ClassifyResult {
+    Accept,
+    Reject,
+    Quarantine,
+}
+
+impl ClassifyResult {
+    pub fn uc(self) -> &'static str {
+        match self {
+            ClassifyResult::Accept => "ACCEPT",
+            ClassifyResult::Reject => "REJECT",
+            ClassifyResult::Quarantine => "QUARANTINE",
+        }
+    }
+}

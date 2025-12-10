@@ -11,7 +11,7 @@ use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction
 use socket2::{Domain, Protocol, Socket, Type};
 use srmilter::milter::constants::*;
 use srmilter::{BufReadExt, ReadExt};
-use srmilter::{MailInfo, MailInfoStorage};
+use srmilter::{ClassifyResult, MailInfo, MailInfoStorage};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
@@ -25,24 +25,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use mail_parser::{MessageParser, MimeHeaders};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-enum ClassifyResult {
-    Accept,
-    Reject,
-    Quarantine,
-}
-
-impl ClassifyResult {
-    fn uc(self) -> &'static str {
-        match self {
-            ClassifyResult::Accept => "ACCEPT",
-            ClassifyResult::Reject => "REJECT",
-            ClassifyResult::Quarantine => "QUARANTINE",
-        }
-    }
-}
 
 mod classify;
 
