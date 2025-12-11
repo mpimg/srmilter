@@ -1,7 +1,8 @@
-use mail_parser::HeaderName;
+use mail_parser::{HeaderName, MessageParser};
 use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
 
+pub mod daemon;
 mod macros;
 pub mod milter;
 mod reader_extention;
@@ -179,4 +180,25 @@ impl ClassifyResult {
 
 pub trait FullEmailClassifier {
     fn classify(&self, mail_info: &MailInfo) -> ClassifyResult;
+}
+
+pub struct Config<'a> {
+    pub full_mail_classifier: &'a dyn FullEmailClassifier,
+}
+
+pub fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
+    let r = MessageParser::default().parse(&storage.mail_buffer);
+    match r {
+        Some(msg) => {
+            let mail_info = MailInfo { storage, msg };
+            config.full_mail_classifier.classify(&mail_info)
+        }
+        None => {
+            println!(
+                "{}: ACCEPT (because of failure to parse message)",
+                storage.id,
+            );
+            ClassifyResult::Accept
+        }
+    }
 }
