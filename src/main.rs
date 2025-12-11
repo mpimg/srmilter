@@ -6,6 +6,7 @@
 // https://github.com/emersion/go-milter/blob/master/milter-protocol-extras.txt
 
 use clap::Parser;
+use mail_parser::{MessageParser, MimeHeaders};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use socket2::{Domain, Protocol, Socket, Type};
@@ -22,11 +23,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use mail_parser::{MessageParser, MimeHeaders};
+mod classify;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-mod classify;
 
 fn classify_mail(storage: &MailInfoStorage) -> ClassifyResult {
     let r = MessageParser::default().parse(&storage.mail_buffer);
