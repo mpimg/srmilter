@@ -35,13 +35,12 @@ impl FullEmailClassifier for StaticClassifier {
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn classify_mail(storage: &MailInfoStorage) -> ClassifyResult {
-    let classifier = StaticClassifier();
+fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
     let r = MessageParser::default().parse(&storage.mail_buffer);
     match r {
         Some(msg) => {
             let mail_info = MailInfo { storage, msg };
-            classifier.classify(&mail_info)
+            config.full_mail_classifier.classify(&mail_info)
         }
         None => {
             println!(
@@ -53,7 +52,12 @@ fn classify_mail(storage: &MailInfoStorage) -> ClassifyResult {
     }
 }
 
-fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<()> {
+fn cmd_test(
+    config: &Config,
+    filename: &Path,
+    sender: String,
+    recipients: Vec<String>,
+) -> Result<()> {
     let storage = MailInfoStorage {
         sender,
         recipients,
@@ -61,7 +65,7 @@ fn cmd_test(filename: &Path, sender: String, recipients: Vec<String>) -> Result<
         id: "test".to_string(),
         ..Default::default()
     };
-    classify_mail(&storage);
+    classify_mail(config, &storage);
     Ok(())
 }
 
@@ -112,7 +116,11 @@ fn cmd_dump(dump_args: &DumpArgs) -> Result<()> {
     }
 }
 
-fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write) -> Result<()> {
+fn process_client(
+    config: &Config,
+    mut stream_reader: impl BufRead,
+    mut stream_writer: impl Write,
+) -> Result<()> {
     let mut data_read_buffer: Vec<u8> = Vec::with_capacity(4096);
     let data_write_buffer: Vec<u8> = Vec::with_capacity(64);
     let mut writer = Cursor::new(data_write_buffer);
@@ -217,7 +225,7 @@ fn process_client(mut stream_reader: impl BufRead, mut stream_writer: impl Write
                     .map(AsRef::as_ref)
                     .unwrap_or("-")
                     .to_string();
-                let result = classify_mail(&storage);
+                let result = classify_mail(config, &storage);
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -287,7 +295,7 @@ fn install_signal_handler() {
     }
 }
 
-fn daemon(address: &str) -> Result<()> {
+fn daemon(config: &Config, address: &str) -> Result<()> {
     #[cfg(feature = "systemd")]
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
@@ -322,7 +330,7 @@ fn daemon(address: &str) -> Result<()> {
         let stream: TcpStream = socket.into();
         let reader = BufReader::new(&stream);
         let writer = BufWriter::new(&stream);
-        if let Err(e) = process_client(reader, writer) {
+        if let Err(e) = process_client(config, reader, writer) {
             eprintln!("{e}");
         }
         if FLAG_SHUTDOWN.load(Ordering::Relaxed) {
@@ -365,19 +373,29 @@ enum Command {
     Dump(DumpArgs),
 }
 
+struct Config<'a> {
+    full_mail_classifier: &'a dyn FullEmailClassifier,
+}
+
 fn xmain() -> Result<()> {
     let cli = Cli::parse();
+    let config = Config {
+        full_mail_classifier: &StaticClassifier(),
+    };
     match cli.command {
         Command::Test {
             filename,
             sender,
             recipients,
         } => cmd_test(
+            &config,
             &filename,
             sender.unwrap_or_default(),
             recipients.unwrap_or_default(),
         ),
-        Command::Daemon { address } => daemon(&address.unwrap_or("0.0.0.0:7044".to_string())),
+        Command::Daemon { address } => {
+            daemon(&config, &address.unwrap_or("0.0.0.0:7044".to_string()))
+        }
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
 }
