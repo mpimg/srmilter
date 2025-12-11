@@ -10,6 +10,7 @@ use mail_parser::{MessageParser, MimeHeaders};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use socket2::{Domain, Protocol, Socket, Type};
+use srmilter::FullEmailClassifier;
 use srmilter::milter::constants::*;
 use srmilter::{BufReadExt, ReadExt};
 use srmilter::{ClassifyResult, MailInfo, MailInfoStorage};
@@ -25,14 +26,22 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 mod classify;
 
+struct StaticClassifier();
+impl FullEmailClassifier for StaticClassifier {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        classify::classify(mail_info)
+    }
+}
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn classify_mail(storage: &MailInfoStorage) -> ClassifyResult {
+    let classifier = StaticClassifier();
     let r = MessageParser::default().parse(&storage.mail_buffer);
     match r {
         Some(msg) => {
             let mail_info = MailInfo { storage, msg };
-            classify::classify(&mail_info)
+            classifier.classify(&mail_info)
         }
         None => {
             println!(

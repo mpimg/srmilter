@@ -176,3 +176,7 @@ impl ClassifyResult {
         }
     }
 }
+
+pub trait FullEmailClassifier {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult;
+}
