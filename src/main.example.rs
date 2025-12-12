@@ -1,21 +1,9 @@
-/*
-    file format subject to change!
-
-    available macros:
-
-      log!(mail_info, ...)          as println! but queue id automatically prefixed
-
-      quarantine!(mail_info, ...)   log and return with Quarantine status. Log defaults to file and line number
-      accept!(mail_info, ...)       log and return with Accept status. Log defaults to file and line number
-      reject!(mail_info, ...)       log and return with Reject. Log defaults to file and line number
-
-      regex_is_match!    from lazy_regex
-*/
-
-use crate::ClassifyResult;
-use crate::MailInfo;
 use lazy_regex::regex_is_match;
-use srmilter::{log, quarantine, accept, _result};
+use srmilter::{_result, ClassifyResult, MailInfo, accept, log, quarantine};
+
+fn main() -> impl std::process::Termination {
+    srmilter::cli::xmain(classify)
+}
 
 #[allow(unused_variables)]
 pub fn classify(mail_info: &MailInfo) -> ClassifyResult {
