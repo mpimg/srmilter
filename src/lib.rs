@@ -2,6 +2,7 @@ use mail_parser::{HeaderName, MessageParser};
 use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
 
+pub mod cli;
 pub mod daemon;
 mod macros;
 pub mod milter;
