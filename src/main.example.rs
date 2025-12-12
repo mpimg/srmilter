@@ -1,8 +1,12 @@
 use lazy_regex::regex_is_match;
-use srmilter::{_result, ClassifyResult, MailInfo, accept, log, quarantine};
+use srmilter::{
+    _result, ClassifyResult, Config, FullEmailFnClassifier, MailInfo, accept, log, quarantine,
+};
 
 fn main() -> impl std::process::Termination {
-    srmilter::cli::xmain(classify)
+    let classifier = FullEmailFnClassifier::new(classify);
+    let config = Config::builder().full_mail_classifier(&classifier).build();
+    srmilter::cli::xmain(&config)
 }
 
 #[allow(unused_variables)]

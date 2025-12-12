@@ -1,7 +1,5 @@
 use crate::daemon::daemon;
-use crate::{
-    ClassifyResult, Config, FullEmailFnClassifier, MailInfo, MailInfoStorage, classify_mail,
-};
+use crate::{Config, MailInfoStorage, classify_mail};
 use clap::Parser;
 use mail_parser::{MessageParser, MimeHeaders};
 use std::fs;
@@ -106,23 +104,21 @@ enum Command {
     Dump(DumpArgs),
 }
 
-pub fn xmain(classify_fn: fn(&MailInfo) -> ClassifyResult) -> Result<()> {
+pub fn xmain(config: &Config) -> Result<()> {
     let cli = Cli::parse();
-    let classifier = FullEmailFnClassifier::new(classify_fn);
-    let config = Config::builder().full_mail_classifier(&classifier).build();
     match cli.command {
         Command::Test {
             filename,
             sender,
             recipients,
         } => cmd_test(
-            &config,
+            config,
             &filename,
             sender.unwrap_or_default(),
             recipients.unwrap_or_default(),
         ),
         Command::Daemon { address } => {
-            daemon(&config, &address.unwrap_or("0.0.0.0:7044".to_string()))
+            daemon(config, &address.unwrap_or("0.0.0.0:7044".to_string()))
         }
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
