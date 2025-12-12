@@ -106,8 +106,17 @@ enum Command {
     Dump(DumpArgs),
 }
 
-struct FnClassifier(fn(&MailInfo) -> ClassifyResult);
-impl FullEmailClassifier for FnClassifier {
+pub type ClassifyFunction = fn(&MailInfo) -> ClassifyResult;
+
+struct FullEmailFnClassifier(ClassifyFunction);
+
+impl FullEmailFnClassifier {
+    fn new(f: ClassifyFunction) -> Self {
+        Self(f)
+    }
+}
+
+impl FullEmailClassifier for FullEmailFnClassifier {
     fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
         self.0(mail_info)
     }
@@ -115,10 +124,8 @@ impl FullEmailClassifier for FnClassifier {
 
 pub fn xmain(classify_fn: fn(&MailInfo) -> ClassifyResult) -> Result<()> {
     let cli = Cli::parse();
-    let classifier = FnClassifier(classify_fn);
-    let config = Config {
-        full_mail_classifier: &classifier,
-    };
+    let classifier = FullEmailFnClassifier::new(classify_fn);
+    let config = Config::builder().full_mail_classifier(&classifier).build();
     match cli.command {
         Command::Test {
             filename,

@@ -183,8 +183,40 @@ pub trait FullEmailClassifier {
     fn classify(&self, mail_info: &MailInfo) -> ClassifyResult;
 }
 
+pub struct AllwayOkayFullEmailClassifier();
+impl FullEmailClassifier for AllwayOkayFullEmailClassifier {
+    fn classify(&self, _mail_info: &MailInfo) -> ClassifyResult {
+        ClassifyResult::Accept
+    }
+}
+
 pub struct Config<'a> {
-    pub full_mail_classifier: &'a dyn FullEmailClassifier,
+    full_mail_classifier: &'a dyn FullEmailClassifier,
+}
+
+impl<'a> Config<'a> {
+    pub fn builder() -> ConfigBuilder<'static> {
+        ConfigBuilder::default()
+    }
+}
+
+#[derive(Default)]
+pub struct ConfigBuilder<'a> {
+    full_mail_classifier: Option<&'a dyn FullEmailClassifier>,
+}
+
+impl<'a> ConfigBuilder<'a> {
+    pub fn full_mail_classifier(mut self, classifier: &'a dyn FullEmailClassifier) -> Self {
+        self.full_mail_classifier = Some(classifier);
+        self
+    }
+    pub fn build(self) -> Config<'a> {
+        Config {
+            full_mail_classifier: self
+                .full_mail_classifier
+                .unwrap_or(&AllwayOkayFullEmailClassifier()),
+        }
+    }
 }
 
 pub fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
