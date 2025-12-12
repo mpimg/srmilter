@@ -235,3 +235,19 @@ pub fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResu
         }
     }
 }
+
+pub type ClassifyFunction = fn(&MailInfo) -> ClassifyResult;
+
+pub struct FullEmailFnClassifier(ClassifyFunction);
+
+impl FullEmailFnClassifier {
+    pub fn new(f: ClassifyFunction) -> Self {
+        Self(f)
+    }
+}
+
+impl FullEmailClassifier for FullEmailFnClassifier {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        self.0(mail_info)
+    }
+}

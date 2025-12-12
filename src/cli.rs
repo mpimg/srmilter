@@ -1,6 +1,6 @@
 use crate::daemon::daemon;
 use crate::{
-    ClassifyResult, Config, FullEmailClassifier, MailInfo, MailInfoStorage, classify_mail,
+    ClassifyResult, Config, FullEmailFnClassifier, MailInfo, MailInfoStorage, classify_mail,
 };
 use clap::Parser;
 use mail_parser::{MessageParser, MimeHeaders};
@@ -104,22 +104,6 @@ enum Command {
         address: Option<String>,
     },
     Dump(DumpArgs),
-}
-
-pub type ClassifyFunction = fn(&MailInfo) -> ClassifyResult;
-
-struct FullEmailFnClassifier(ClassifyFunction);
-
-impl FullEmailFnClassifier {
-    fn new(f: ClassifyFunction) -> Self {
-        Self(f)
-    }
-}
-
-impl FullEmailClassifier for FullEmailFnClassifier {
-    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
-        self.0(mail_info)
-    }
 }
 
 pub fn xmain(classify_fn: fn(&MailInfo) -> ClassifyResult) -> Result<()> {
