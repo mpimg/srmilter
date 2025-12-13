@@ -191,7 +191,7 @@ impl FullEmailClassifier for AllwayOkayFullEmailClassifier {
 }
 
 pub struct Config<'a> {
-    full_mail_classifier: &'a dyn FullEmailClassifier,
+    full_mail_classifier: Option<&'a dyn FullEmailClassifier>,
 }
 
 impl<'a> Config<'a> {
@@ -212,27 +212,27 @@ impl<'a> ConfigBuilder<'a> {
     }
     pub fn build(self) -> Config<'a> {
         Config {
-            full_mail_classifier: self
-                .full_mail_classifier
-                .unwrap_or(&AllwayOkayFullEmailClassifier()),
+            full_mail_classifier: self.full_mail_classifier,
         }
     }
 }
 
 pub fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
-    let r = MessageParser::default().parse(&storage.mail_buffer);
-    match r {
-        Some(msg) => {
+    if let Some(c) = config.full_mail_classifier {
+        let r = MessageParser::default().parse(&storage.mail_buffer);
+        if let Some(msg) = r {
             let mail_info = MailInfo { storage, msg };
-            config.full_mail_classifier.classify(&mail_info)
-        }
-        None => {
+            c.classify(&mail_info)
+        } else {
             println!(
                 "{}: ACCEPT (because of failure to parse message)",
                 storage.id,
             );
             ClassifyResult::Accept
         }
+    } else {
+        println!("{}: ACCEPT (no classifier configured)", storage.id);
+        ClassifyResult::Accept
     }
 }
 
