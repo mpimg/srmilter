@@ -251,3 +251,25 @@ impl FullEmailClassifier for FullEmailFnClassifier {
         self.0(mail_info)
     }
 }
+
+pub type ClassifyFunctionWithCtx<C> = fn(&C, &MailInfo) -> ClassifyResult;
+
+pub struct FullEmailFnClassifierWithCtx<'a, C> {
+    user_ctx: &'a C,
+    f: ClassifyFunctionWithCtx<C>,
+}
+
+impl<'a, C> FullEmailFnClassifierWithCtx<'a, C> {
+    pub fn new(user_ctx: &'a C, f: ClassifyFunctionWithCtx<C>) -> Self {
+        Self {
+            user_ctx: user_ctx,
+            f: f,
+        }
+    }
+}
+
+impl<'a, C> FullEmailClassifier for FullEmailFnClassifierWithCtx<'a, C> {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        (self.f)(self.user_ctx, mail_info)
+    }
+}
