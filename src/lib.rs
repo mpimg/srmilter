@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::net::IpAddr;
 
 pub mod cli;
 pub mod daemon;
@@ -161,6 +162,19 @@ impl MailInfo<'_> {
                 None
             }
         })
+    }
+    pub fn recevied_ip_iter(&self) -> impl Iterator<Item = IpAddr> {
+        self.msg
+            .header_values(HeaderName::Received)
+            .filter_map(|h| {
+                if let mail_parser::HeaderValue::Received(r) = h
+                    && let Some(ip) = r.from_ip
+                {
+                    Some(ip)
+                } else {
+                    None
+                }
+            })
     }
 }
 
