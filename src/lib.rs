@@ -1,6 +1,9 @@
 use mail_parser::{HeaderName, MessageParser};
 use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
+use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 pub mod cli;
 pub mod daemon;
@@ -272,4 +275,19 @@ impl<'a, C> FullEmailClassifier for FullEmailFnClassifierWithCtx<'a, C> {
     fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
         (self.f)(self.user_ctx, mail_info)
     }
+}
+
+pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
+    let file = File::open(filename).map_err(|e| format!("{filename}: {e}"))?;
+    let reader = BufReader::new(file);
+    let mut out: Vec<String> = Vec::with_capacity(20);
+    for line in reader.lines() {
+        if let Some(s) = line?.split('#').next() {
+            let s = s.trim();
+            if s != "" {
+                out.push(s.into());
+            }
+        }
+    }
+    Ok(out)
 }
