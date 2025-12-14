@@ -2,7 +2,7 @@ use lazy_regex::regex_is_match;
 
 #[test]
 fn test_wordpress() {
-    let subject = "[bla] ﺖﻓﺎﺼﻴﻟ ﺖﺴﺠﻴﻟ ﺎﻟﺪﺧﻮﻟ";
+    let subject = "[Armoni Scans] Oturum açma bilgileri";
     let r = regex_is_match!(
         r"(?x)
         ^\[.+\]\ (
@@ -12,7 +12,9 @@ fn test_wordpress() {
             | Giriş\ Detayları
             | Detalle\ de\ Acceso
             | ﺖﻓﺎﺼﻴﻟ\ ﺖﺴﺠﻴﻟ\ ﺎﻟﺪﺧﻮﻟ
-            | placeholder
+            | Detalle\ de\ Acceso
+            | Oturum\ açma\ bilgileri
+
         )$",
         subject
     );
