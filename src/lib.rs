@@ -280,8 +280,8 @@ pub struct FullEmailFnClassifierWithCtx<'a, C> {
 impl<'a, C> FullEmailFnClassifierWithCtx<'a, C> {
     pub fn new(user_ctx: &'a C, f: ClassifyFunctionWithCtx<C>) -> Self {
         Self {
-            user_ctx: user_ctx,
-            f: f,
+            user_ctx,
+            f,
         }
     }
 }
@@ -299,7 +299,7 @@ pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     for line in reader.lines() {
         if let Some(s) = line?.split('#').next() {
             let s = s.trim();
-            if s != "" {
+            if !s.is_empty() {
                 out.push(s.into());
             }
         }
