@@ -11,6 +11,7 @@ pub mod daemon;
 mod macros;
 pub mod milter;
 mod reader_extention;
+pub mod spamhaus_zen;
 
 pub use reader_extention::*;
 
