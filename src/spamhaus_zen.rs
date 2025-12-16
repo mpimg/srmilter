@@ -61,8 +61,8 @@ fn reject_on_any_ip(ip: Ipv4Addr) -> bool {
     const ZEN_11: u32 = Ipv4Addr::new(127, 0, 0, 11).to_bits();
     match ip.to_bits() {
         ZEN_2 => false,  // SBL manually maintained list of abuse-related resources
-        ZEN_3 => false, // CSS  automated sublist, listing SMTP emitters associated with a low reputation or confirmed abuse
-        ZEN_4 => false, // XBL IPs that have recently been observed hosting compromised hosts
+        ZEN_3 => false,  // CSS  automated sublist, listing SMTP emitters associated with a low reputation or confirmed abuse
+        ZEN_4 => true,   // XBL IPs that have recently been observed hosting compromised hosts
         ZEN_10 => false, // PBL dynamic and low-security IP space, indicated directly by the ISP
         ZEN_11 => false, // PBL dynamic and low-security IP space, inferred by Spamjaus
         _ => false,
@@ -77,8 +77,8 @@ fn reject_on_first_ip(ip: Ipv4Addr) -> bool {
     const ZEN_11: u32 = Ipv4Addr::new(127, 0, 0, 11).to_bits();
     match ip.to_bits() {
         ZEN_2 => false,  // SBL manually maintained list of abuse-related resources
-        ZEN_3 => false, // CSS  automated sublist, listing SMTP emitters associated with a low reputation or confirmed abuse
-        ZEN_4 => false, // XBL IPs that have recently been observed hosting compromised hosts
+        ZEN_3 => false,  // CSS  automated sublist, listing SMTP emitters associated with a low reputation or confirmed abuse
+        ZEN_4 => true,   // XBL IPs that have recently been observed hosting compromised hosts
         ZEN_10 => false, // PBL dynamic and low-security IP space, indicated directly by the ISP
         ZEN_11 => false, // PBL dynamic and low-security IP space, inferred by Spamjaus
         _ => false,
