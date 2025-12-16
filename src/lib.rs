@@ -279,10 +279,7 @@ pub struct FullEmailFnClassifierWithCtx<'a, C> {
 
 impl<'a, C> FullEmailFnClassifierWithCtx<'a, C> {
     pub fn new(user_ctx: &'a C, f: ClassifyFunctionWithCtx<C>) -> Self {
-        Self {
-            user_ctx,
-            f,
-        }
+        Self { user_ctx, f }
     }
 }
 
