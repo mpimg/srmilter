@@ -149,24 +149,20 @@ impl MailInfo<'_> {
             ("".to_string(), "".to_string(), "".to_string())
         }
     }
-    pub fn get_received_header_iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = &'a Box<mail_parser::Received<'a>>> {
-        self.msg
-            .header_values(HeaderName::Received)
-            .filter_map(|h| {
-                if let mail_parser::HeaderValue::Received(r) = h {
-                    // r: &Box<Received<'_>>
-                    Some(r)
-                } else {
-                    None
-                }
-            })
+    pub fn get_received_header_iter(&self) -> impl Iterator<Item = &mail_parser::Received<'_>> {
+        self.msg.headers().iter().filter_map(|h| {
+            if let mail_parser::HeaderValue::Received(r) = &h.value {
+                // r: &Box<Received<'_>>
+                Some(r.as_ref())
+            } else {
+                None
+            }
+        })
     }
-    pub fn get_trusted_received_header_iter<'a>(
-        &'a self,
+    pub fn get_trusted_received_header_iter(
+        &self,
         good_domain: &str,
-    ) -> impl Iterator<Item = &'a Box<mail_parser::Received<'a>>> {
+    ) -> impl Iterator<Item = &mail_parser::Received<'_>> {
         self.get_received_header_iter().skip_while(move |r| {
             if let Some(mail_parser::Host::Name(by)) = &r.by
                 && by.ends_with(good_domain)
@@ -181,9 +177,7 @@ impl MailInfo<'_> {
         &'a self,
         good_domain: &str,
     ) -> Option<&'a mail_parser::Received<'a>> {
-        self.get_trusted_received_header_iter(good_domain)
-            .next()
-            .map(|v| &**v)
+        self.get_trusted_received_header_iter(good_domain).next()
     }
 
     pub fn recevied_ip_iter(&self) -> impl Iterator<Item = IpAddr> {
