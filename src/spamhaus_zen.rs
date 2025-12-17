@@ -86,11 +86,14 @@ fn reject_on_first_ip(ip: Ipv4Addr) -> bool {
 }
 
 fn lookup_ip(ip: IpAddr) -> Vec<Ipv4Addr> {
+    let mut out: Vec<Ipv4Addr> = Vec::new();
+    if ip.is_loopback() {
+        return out;
+    }
     let lookup = match ip {
         IpAddr::V4(ip) => spamhaus_v4(ip),
         IpAddr::V6(ip) => spamhaus_v6(ip),
     };
-    let mut out: Vec<Ipv4Addr> = Vec::new();
     if let Ok(sal) = format!("{lookup}:0").to_socket_addrs() {
         for sa in sal {
             if let IpAddr::V4(ipv4) = sa.ip() {
