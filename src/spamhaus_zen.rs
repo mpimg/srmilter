@@ -80,7 +80,7 @@ fn reject_on_first_ip(ip: Ipv4Addr) -> bool {
         ZEN_3 => false, // CSS  automated sublist, listing SMTP emitters associated with a low reputation or confirmed abuse
         ZEN_4 => true,  // XBL IPs that have recently been observed hosting compromised hosts
         ZEN_10 => false, // PBL dynamic and low-security IP space, indicated directly by the ISP
-        ZEN_11 => true, // PBL dynamic and low-security IP space, inferred by Spamjaus
+        ZEN_11 => false, // PBL dynamic and low-security IP space, inferred by Spamjaus
         _ => false,
     }
 }
