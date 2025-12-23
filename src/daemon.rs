@@ -28,6 +28,7 @@ fn process_client(
     config: &Config,
     mut stream_reader: impl BufRead,
     mut stream_writer: impl Write,
+    truncate: usize,
 ) -> Result<()> {
     let mut data_read_buffer: Vec<u8> = Vec::with_capacity(4096);
     let data_write_buffer: Vec<u8> = Vec::with_capacity(64);
@@ -57,20 +58,23 @@ fn process_client(
                 writer.write_all(b"O")?;
                 writer.write_all(&SMFIF_VERSION.to_be_bytes())?;
                 writer.write_all(&SMFIF_QUARANTINE.to_be_bytes())?;
-                writer.write_all(
-                    &(SMFIP_NOCONNECT
-                        | SMFIP_NOHELO
-                        | SMFIP_NR_HDR
-                        | SMFIP_NOUNKNOWN
-                        | SMFIP_NODATA
-                        | SMFIP_SKIP
-                        | SMFIP_NR_CONN
-                        | SMFIP_NR_MAIL
-                        | SMFIP_NR_RCPT
-                        | SMFIP_NR_EOH
-                        | SMFIP_NR_BODY)
-                        .to_be_bytes(),
-                )?;
+                let mut protocol = SMFIP_NOCONNECT
+                    | SMFIP_NOHELO
+                    | SMFIP_NR_HDR
+                    | SMFIP_NOUNKNOWN
+                    | SMFIP_NODATA
+                    | SMFIP_SKIP
+                    | SMFIP_NR_CONN
+                    | SMFIP_NR_MAIL
+                    | SMFIP_NR_RCPT
+                    | SMFIP_NR_EOH;
+                if truncate == 0 {
+                    protocol |= SMFIP_NOBODY
+                }
+                if truncate == usize::MAX {
+                    protocol |= SMFIP_NR_BODY
+                }
+                writer.write_all(&protocol.to_be_bytes())?;
                 stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                 stream_writer.write_all(&writer.get_ref()[0..writer.position() as usize])?;
                 stream_writer.flush()?;
@@ -118,10 +122,36 @@ fn process_client(
                 // reply disabled with SMFIP_NR_EOH
             }
             'B' => {
-                let mut bdata = Vec::new();
-                data_reader.read_to_end(&mut bdata)?;
-                storage.mail_buffer.extend_from_slice(&bdata[..]);
-                // reply disabled with SMFIP_NR_BODY
+                let buffer_space = truncate - storage.mail_buffer.len();
+                let pos = data_reader.position() as usize;
+                let data = &data_reader.get_ref()[pos..];
+                if data.len() <= buffer_space {
+                    storage.mail_buffer.extend_from_slice(data);
+                } else {
+                    storage
+                        .mail_buffer
+                        .extend_from_slice(&data[0..buffer_space]);
+                }
+                if truncate == usize::MAX {
+                    // reply disabled with SMFIP_NR_BODY
+                } else {
+                    if storage.mail_buffer.len() < truncate {
+                        // continue
+                        writer.rewind()?;
+                        writer.write_all(b"c")?; // SMFIR_CONTINUE
+                        stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                        stream_writer
+                            .write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                    } else {
+                        // skip
+                        writer.rewind()?;
+                        writer.write_all(b"s")?; // SMFIR_SKIP
+                        stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                        stream_writer
+                            .write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                    }
+                    stream_writer.flush()?;
+                }
             }
             'E' => {
                 for (key, value) in &connect_macros {
@@ -213,7 +243,7 @@ fn install_signal_handler() {
     }
 }
 
-pub fn daemon(config: &Config, address: &str, max_children: u16) -> Result<()> {
+pub fn daemon(config: &Config, address: &str, max_children: u16, truncate: usize) -> Result<()> {
     #[cfg(feature = "systemd")]
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
@@ -250,7 +280,7 @@ pub fn daemon(config: &Config, address: &str, max_children: u16) -> Result<()> {
                     let stream: TcpStream = socket.into();
                     let reader = BufReader::new(&stream);
                     let writer = BufWriter::new(&stream);
-                    if let Err(e) = process_client(config, reader, writer) {
+                    if let Err(e) = process_client(config, reader, writer, truncate) {
                         eprintln!("{e}");
                     }
                 } else {
@@ -263,7 +293,7 @@ pub fn daemon(config: &Config, address: &str, max_children: u16) -> Result<()> {
                             let stream: TcpStream = socket.into();
                             let reader = BufReader::new(&stream);
                             let writer = BufWriter::new(&stream);
-                            match process_client(config, reader, writer) {
+                            match process_client(config, reader, writer, truncate) {
                                 Ok(_) => exit(0),
                                 Err(e) => {
                                     eprintln!("{e}");

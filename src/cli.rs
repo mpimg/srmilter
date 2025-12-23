@@ -102,6 +102,8 @@ enum Command {
         address: Option<String>,
         #[arg(long = "fork")]
         fork_max: Option<u16>,
+        #[arg(long = "truncate")]
+        truncate: Option<usize>,
     },
     Dump(DumpArgs),
 }
@@ -119,10 +121,15 @@ pub fn xmain(config: &Config) -> Result<()> {
             sender.unwrap_or_default(),
             recipients.unwrap_or_default(),
         ),
-        Command::Daemon { address, fork_max } => daemon(
+        Command::Daemon {
+            address,
+            fork_max,
+            truncate,
+        } => daemon(
             config,
             &address.unwrap_or("0.0.0.0:7044".to_string()),
             fork_max.unwrap_or(0),
+            truncate.unwrap_or(usize::MAX),
         ),
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
