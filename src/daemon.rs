@@ -3,13 +3,16 @@ use crate::reader_extention::{BufReadExt, ReadExt};
 use crate::{ClassifyResult, Config, MailInfoStorage, classify_mail};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
+use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
+use nix::unistd::{ForkResult, Pid, fork, pause};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
 use std::net::{SocketAddr, TcpStream};
 #[cfg(feature = "systemd")]
 use std::os::fd::FromRawFd;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::process::exit;
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 
 // https://codeberg.org/glts/indymilter
 // https://www.postfix.org/MILTER_README.html
@@ -17,6 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 // https://github.com/emersion/go-milter/blob/master/milter-protocol-extras.txt
 
 static FLAG_SHUTDOWN: AtomicBool = AtomicBool::new(false);
+static CHILDREN_CNT: AtomicU16 = AtomicU16::new(0);
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -187,6 +191,15 @@ extern "C" fn handlerfunc(signum: c_int) {
     FLAG_SHUTDOWN.store(true, Ordering::Relaxed);
 }
 
+extern "C" fn handlerfunc_child(_signum: c_int) {
+    if let WaitStatus::Exited(_pid, _exit_code) =
+        waitpid(Some(Pid::from_raw(-1)), Some(WaitPidFlag::WNOHANG)).unwrap()
+        && CHILDREN_CNT.fetch_sub(1, Ordering::Relaxed) == 0
+    {
+        panic!("children underflow");
+    }
+}
+
 fn install_signal_handler() {
     unsafe {
         let handler = SigHandler::Handler(handlerfunc);
@@ -194,10 +207,13 @@ fn install_signal_handler() {
         sigaction(Signal::SIGTERM, &action).unwrap();
         let action = SigAction::new(handler, SaFlags::empty(), SigSet::empty());
         sigaction(Signal::SIGINT, &action).unwrap();
+        let handler = SigHandler::Handler(handlerfunc_child);
+        let action = SigAction::new(handler, SaFlags::SA_NOCLDSTOP, SigSet::empty());
+        sigaction(Signal::SIGCHLD, &action).unwrap();
     }
 }
 
-pub fn daemon(config: &Config, address: &str) -> Result<()> {
+pub fn daemon(config: &Config, address: &str, max_children: u16) -> Result<()> {
     #[cfg(feature = "systemd")]
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
@@ -223,17 +239,44 @@ pub fn daemon(config: &Config, address: &str) -> Result<()> {
 
     install_signal_handler();
     loop {
-        let r = listen_socket.accept();
-        let (socket, _addr) = match r {
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => break,
-            _ => r,
-        }?;
-        // eprintln!("new connection accepted");
-        let stream: TcpStream = socket.into();
-        let reader = BufReader::new(&stream);
-        let writer = BufWriter::new(&stream);
-        if let Err(e) = process_client(config, reader, writer) {
-            eprintln!("{e}");
+        if max_children > 0 {
+            while CHILDREN_CNT.load(Ordering::Relaxed) >= max_children {
+                pause()
+            }
+        }
+        match listen_socket.accept() {
+            Ok((socket, _addr)) => {
+                if max_children == 0 {
+                    let stream: TcpStream = socket.into();
+                    let reader = BufReader::new(&stream);
+                    let writer = BufWriter::new(&stream);
+                    if let Err(e) = process_client(config, reader, writer) {
+                        eprintln!("{e}");
+                    }
+                } else {
+                    match unsafe { fork() } {
+                        Ok(ForkResult::Parent { .. }) => {
+                            CHILDREN_CNT.fetch_add(1, Ordering::Relaxed);
+                        }
+                        Ok(ForkResult::Child) => {
+                            drop(listen_socket);
+                            let stream: TcpStream = socket.into();
+                            let reader = BufReader::new(&stream);
+                            let writer = BufWriter::new(&stream);
+                            match process_client(config, reader, writer) {
+                                Ok(_) => exit(0),
+                                Err(e) => {
+                                    eprintln!("{e}");
+                                    exit(1)
+                                }
+                            }
+                        }
+                        Err(e) => eprintln!("fork: {e}"),
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => (),
+            Err(e) => eprintln!("fork: {e}"),
         }
         if FLAG_SHUTDOWN.load(Ordering::Relaxed) {
             break;
