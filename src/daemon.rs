@@ -173,7 +173,7 @@ fn process_client(
                 let mut rest = Vec::new();
                 data_reader.read_to_end(&mut rest)?;
                 let rest = String::from_utf8_lossy(&rest);
-                println!("unimplemented milter command {cmd} rest {rest}");
+                eprintln!("unimplemented milter command {cmd} rest {rest}");
                 todo!("unimplemented");
             }
         }
@@ -183,7 +183,7 @@ fn process_client(
 }
 
 extern "C" fn handlerfunc(signum: c_int) {
-    println!("received signal {signum}");
+    eprintln!("received signal {signum}");
     FLAG_SHUTDOWN.store(true, Ordering::Relaxed);
 }
 
