@@ -151,7 +151,7 @@ fn process_client(
                     }
                     ClassifyResult::Quarantine => {
                         writer.rewind()?;
-                        writer.write_all(b"qquarantine test\0")?; // SMFIR_QUARANTINE
+                        writer.write_all(b"qmilter\0")?; // SMFIR_QUARANTINE
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
