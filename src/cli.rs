@@ -2,17 +2,16 @@ use crate::daemon::daemon;
 use crate::{Config, MailInfoStorage, classify_mail};
 use clap::Parser;
 use mail_parser::{MessageParser, MimeHeaders};
+use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn cmd_test(
     config: &Config,
     filename: &Path,
     sender: String,
     recipients: Vec<String>,
-) -> Result<()> {
+) -> Result<(), Box<dyn Error>> {
     let storage = MailInfoStorage {
         sender,
         recipients,
@@ -24,7 +23,7 @@ fn cmd_test(
     Ok(())
 }
 
-fn cmd_dump(dump_args: &DumpArgs) -> Result<()> {
+fn cmd_dump(dump_args: &DumpArgs) -> Result<(), Box<dyn Error>> {
     let (dump_header, dump_body) = match (dump_args.header, dump_args.body) {
         (false, false) => (true, true),
         (dump_header, dump_body) => (dump_header, dump_body),
@@ -108,7 +107,7 @@ enum Command {
     Dump(DumpArgs),
 }
 
-pub fn xmain(config: &Config) -> Result<()> {
+pub fn xmain(config: &Config) -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match cli.command {
         Command::Test {

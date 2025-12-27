@@ -7,6 +7,7 @@ use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::{ForkResult, Pid, fork, pause};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::collections::HashMap;
+use std::error::Error;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
 use std::net::{SocketAddr, TcpStream};
 #[cfg(feature = "systemd")]
@@ -22,14 +23,12 @@ use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 static FLAG_SHUTDOWN: AtomicBool = AtomicBool::new(false);
 static CHILDREN_CNT: AtomicU16 = AtomicU16::new(0);
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 fn process_client(
     config: &Config,
     mut stream_reader: impl BufRead,
     mut stream_writer: impl Write,
     truncate: usize,
-) -> Result<()> {
+) -> Result<(), Box<dyn Error>> {
     let mut data_read_buffer: Vec<u8> = Vec::with_capacity(4096);
     let data_write_buffer: Vec<u8> = Vec::with_capacity(64);
     let mut writer = Cursor::new(data_write_buffer);
@@ -243,7 +242,12 @@ fn install_signal_handler() {
     }
 }
 
-pub fn daemon(config: &Config, address: &str, max_children: u16, truncate: usize) -> Result<()> {
+pub fn daemon(
+    config: &Config,
+    address: &str,
+    max_children: u16,
+    truncate: usize,
+) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "systemd")]
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
