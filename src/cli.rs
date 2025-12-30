@@ -101,6 +101,8 @@ enum Command {
         address: Option<String>,
         #[arg(long = "fork")]
         fork_max: Option<u16>,
+        #[arg(long = "threads")]
+        threads_max: Option<u16>,
         #[arg(long = "truncate")]
         truncate: Option<usize>,
     },
@@ -123,13 +125,20 @@ pub fn xmain(config: &Config) -> Result<(), Box<dyn Error>> {
         Command::Daemon {
             address,
             fork_max,
+            threads_max,
             truncate,
-        } => daemon(
-            config,
-            &address.unwrap_or("0.0.0.0:7044".to_string()),
-            fork_max.unwrap_or(0),
-            truncate.unwrap_or(usize::MAX),
-        ),
+        } => {
+            if fork_max.is_some() && threads_max.is_some() {
+                return Err("--fork and --threads are mutually exclusive".into());
+            }
+            daemon(
+                config,
+                &address.unwrap_or("0.0.0.0:7044".to_string()),
+                fork_max.unwrap_or(0),
+                threads_max.unwrap_or(0),
+                truncate.unwrap_or(usize::MAX),
+            )
+        }
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
 }

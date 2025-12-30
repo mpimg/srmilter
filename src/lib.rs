@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::net::IpAddr;
+use std::sync::Arc;
 
 pub mod cli;
 pub mod daemon;
@@ -228,8 +229,13 @@ impl FullEmailClassifier for AllwayOkayFullEmailClassifier {
     }
 }
 
+pub enum ClassifierStorage<'a> {
+    Borrowed(&'a dyn FullEmailClassifier),
+    Owned(Arc<dyn FullEmailClassifier + Send + Sync>),
+}
+
 pub struct Config<'a> {
-    full_mail_classifier: Option<&'a dyn FullEmailClassifier>,
+    full_mail_classifier: Option<ClassifierStorage<'a>>,
 }
 
 impl<'a> Config<'a> {
@@ -240,12 +246,19 @@ impl<'a> Config<'a> {
 
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
-    full_mail_classifier: Option<&'a dyn FullEmailClassifier>,
+    full_mail_classifier: Option<ClassifierStorage<'a>>,
 }
 
 impl<'a> ConfigBuilder<'a> {
     pub fn full_mail_classifier(mut self, classifier: &'a dyn FullEmailClassifier) -> Self {
-        self.full_mail_classifier = Some(classifier);
+        self.full_mail_classifier = Some(ClassifierStorage::Borrowed(classifier));
+        self
+    }
+    pub fn full_mail_classifier_arc(
+        mut self,
+        classifier: Arc<dyn FullEmailClassifier + Send + Sync>,
+    ) -> Self {
+        self.full_mail_classifier = Some(ClassifierStorage::Owned(classifier));
         self
     }
     pub fn build(self) -> Config<'a> {
@@ -256,11 +269,15 @@ impl<'a> ConfigBuilder<'a> {
 }
 
 pub fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
-    if let Some(c) = config.full_mail_classifier {
+    if let Some(ref c) = config.full_mail_classifier {
+        let classifier: &dyn FullEmailClassifier = match c {
+            ClassifierStorage::Borrowed(b) => *b,
+            ClassifierStorage::Owned(arc) => arc.as_ref(),
+        };
         let r = MessageParser::default().parse(&storage.mail_buffer);
         if let Some(msg) = r {
             let mail_info = MailInfo { storage, msg };
-            c.classify(&mail_info)
+            classifier.classify(&mail_info)
         } else {
             println!(
                 "{}: ACCEPT (because of failure to parse message)",

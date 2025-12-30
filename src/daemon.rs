@@ -1,6 +1,6 @@
 use crate::milter::constants::*;
 use crate::reader_extention::{BufReadExt, ReadExt};
-use crate::{ClassifyResult, Config, MailInfoStorage, classify_mail};
+use crate::{ClassifierStorage, ClassifyResult, Config, MailInfoStorage, classify_mail};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
@@ -14,6 +14,9 @@ use std::net::{SocketAddr, TcpStream};
 use std::os::fd::FromRawFd;
 use std::process::exit;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread;
+use std::time::Duration;
 
 // https://codeberg.org/glts/indymilter
 // https://www.postfix.org/MILTER_README.html
@@ -246,6 +249,7 @@ pub fn daemon(
     config: &Config,
     address: &str,
     max_children: u16,
+    max_threads: u16,
     truncate: usize,
 ) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "systemd")]
@@ -271,23 +275,40 @@ pub fn daemon(
         socket
     };
 
+    if max_children > 0 && max_threads > 0 {
+        return Err("Cannot use both fork and thread modes simultaneously".into());
+    }
+
+    // Validate classifier is Arc-based when using threads
+    if max_threads > 0
+        && let Some(ref classifier_storage) = config.full_mail_classifier
+        && matches!(classifier_storage, ClassifierStorage::Borrowed(_))
+    {
+        return Err("Threading mode requires Arc-based classifier. Use ConfigBuilder::full_mail_classifier_arc() instead of full_mail_classifier()".into());
+    }
+
+    let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if max_threads > 0 {
+        Some(Arc::new((Mutex::new(0), Condvar::new())))
+    } else {
+        None
+    };
+
     install_signal_handler();
     loop {
         if max_children > 0 {
             while CHILDREN_CNT.load(Ordering::Relaxed) >= max_children {
                 pause()
             }
+        } else if let Some(ref state) = thread_state {
+            let (lock, cvar) = state.as_ref();
+            let mut count = lock.lock().unwrap();
+            while *count >= max_threads {
+                count = cvar.wait(count).unwrap();
+            }
         }
         match listen_socket.accept() {
             Ok((socket, _addr)) => {
-                if max_children == 0 {
-                    let stream: TcpStream = socket.into();
-                    let reader = BufReader::new(&stream);
-                    let writer = BufWriter::new(&stream);
-                    if let Err(e) = process_client(config, reader, writer, truncate) {
-                        eprintln!("{e}");
-                    }
-                } else {
+                if max_children > 0 {
                     match unsafe { fork() } {
                         Ok(ForkResult::Parent { .. }) => {
                             CHILDREN_CNT.fetch_add(1, Ordering::Relaxed);
@@ -307,6 +328,50 @@ pub fn daemon(
                         }
                         Err(e) => eprintln!("fork: {e}"),
                     }
+                } else if max_threads > 0 {
+                    let state_clone = thread_state.as_ref().unwrap().clone();
+
+                    // Increment thread count
+                    {
+                        let (lock, _) = state_clone.as_ref();
+                        let mut count = lock.lock().unwrap();
+                        *count += 1;
+                    }
+
+                    let stream: TcpStream = socket.into();
+
+                    // Extract Arc from config (validated above)
+                    let classifier_arc = match config.full_mail_classifier.as_ref().unwrap() {
+                        ClassifierStorage::Owned(arc) => arc.clone(),
+                        _ => unreachable!("Already validated classifier is Arc-based"),
+                    };
+
+                    thread::spawn(move || {
+                        let reader = BufReader::new(&stream);
+                        let writer = BufWriter::new(&stream);
+
+                        // Create thread-local Config with Owned classifier
+                        let thread_config = Config {
+                            full_mail_classifier: Some(ClassifierStorage::Owned(classifier_arc)),
+                        };
+
+                        if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
+                            eprintln!("thread error: {e}");
+                        }
+
+                        // Decrement count and signal
+                        let (lock, cvar) = &*state_clone;
+                        let mut count = lock.lock().unwrap();
+                        *count -= 1;
+                        cvar.notify_one();
+                    });
+                } else {
+                    let stream: TcpStream = socket.into();
+                    let reader = BufReader::new(&stream);
+                    let writer = BufWriter::new(&stream);
+                    if let Err(e) = process_client(config, reader, writer, truncate) {
+                        eprintln!("{e}");
+                    }
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => (),
@@ -316,5 +381,17 @@ pub fn daemon(
             break;
         }
     }
+
+    // Wait for active threads to complete
+    if let Some(ref state) = thread_state {
+        let (lock, cvar) = state.as_ref();
+        let mut count = lock.lock().unwrap();
+        while *count > 0 {
+            eprintln!("Waiting for {} threads to complete", *count);
+            let result = cvar.wait_timeout(count, Duration::from_secs(1)).unwrap();
+            count = result.0;
+        }
+    }
+
     Ok(())
 }
