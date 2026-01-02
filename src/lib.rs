@@ -326,6 +326,25 @@ impl<'a, C> FullEmailClassifier for FullEmailFnClassifierWithCtx<'a, C> {
     }
 }
 
+/// Thread-safe version of `FullEmailFnClassifierWithCtx` that owns the context via `Arc`.
+/// Use this with `full_mail_classifier_arc()` when running with `--threads`.
+pub struct FullEmailFnClassifierWithCtxArc<C> {
+    user_ctx: Arc<C>,
+    f: ClassifyFunctionWithCtx<C>,
+}
+
+impl<C> FullEmailFnClassifierWithCtxArc<C> {
+    pub fn new(user_ctx: Arc<C>, f: ClassifyFunctionWithCtx<C>) -> Self {
+        Self { user_ctx, f }
+    }
+}
+
+impl<C: Send + Sync> FullEmailClassifier for FullEmailFnClassifierWithCtxArc<C> {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        (self.f)(&self.user_ctx, mail_info)
+    }
+}
+
 pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let file = File::open(filename).map_err(|e| format!("{filename}: {e}"))?;
     let reader = BufReader::new(file);
