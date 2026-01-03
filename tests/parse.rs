@@ -3,11 +3,13 @@ use srmilter::{MailInfo, MailInfoStorage};
 
 #[test]
 fn parse_001() {
-    let mut storage = MailInfoStorage::default();
-    storage.mail_buffer = std::fs::read("tests/parse_001.eml").unwrap();
-    storage.sender = "sender".to_string();
-    storage.recipients = vec!["recipient".to_string()];
-    storage.id = "test".to_string();
+    let storage = MailInfoStorage {
+        mail_buffer: std::fs::read("tests/parse_001.eml").unwrap(),
+        sender: "sender".to_string(),
+        recipients: vec!["recipient".to_string()],
+        id: "test".to_string(),
+        ..Default::default()
+    };
 
     let mail_info = MailInfo {
         storage: &storage,
@@ -45,11 +47,13 @@ fn parse_001() {
 
 #[test]
 fn parse_002() {
-    let mut storage = MailInfoStorage::default();
-    storage.mail_buffer = std::fs::read("tests/parse_002.eml").unwrap();
-    storage.sender = "sender".to_string();
-    storage.recipients = vec!["recipients".to_string()];
-    storage.id = "test".to_string();
+    let storage = MailInfoStorage {
+        mail_buffer: std::fs::read("tests/parse_002.eml").unwrap(),
+        sender: "sender".to_string(),
+        recipients: vec!["recipients".to_string()],
+        id: "test".to_string(),
+        ..Default::default()
+    };
     let mail_info = MailInfo {
         storage: &storage,
         msg: MessageParser::default()

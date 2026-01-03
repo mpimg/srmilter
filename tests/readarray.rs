@@ -10,9 +10,9 @@ fn test_read_array() {
         .unwrap();
     let array = read_array(file1.path().to_str().unwrap()).unwrap();
     assert_eq!(array, ["Test1", "Test2", "Test3"]);
-    assert_eq!(array_contains(&array, "Bla"), false);
-    assert_eq!(array_contains(&array, "Test1"), true);
-    assert_eq!(array_contains(&array, "Test3"), true);
-    assert_eq!(array_contains(&array, "xTest2"), false);
-    assert_eq!(array_contains(&array, "Test2x"), false);
+    assert!(!array_contains(&array, "Bla"));
+    assert!(array_contains(&array, "Test1"));
+    assert!(array_contains(&array, "Test3"));
+    assert!(!array_contains(&array, "xTest2"));
+    assert!(!array_contains(&array, "Test2x"));
 }
