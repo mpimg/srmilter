@@ -2,11 +2,14 @@ use lazy_regex::regex_is_match;
 use srmilter::{
     _result, ClassifyResult, Config, FullEmailFnClassifier, MailInfo, accept, log, quarantine,
 };
+use std::sync::Arc;
 
 fn main() -> impl std::process::Termination {
-    // this classifier is NOT compatible with --threads mode
-    let classifier = FullEmailFnClassifier::new(classify);
-    let config = Config::builder().full_mail_classifier(&classifier).build();
+    // this classifier is compatible with --threads mode
+    let classifier = Arc::new(FullEmailFnClassifier::new(classify));
+    let config = Config::builder()
+        .full_mail_classifier_arc(classifier)
+        .build();
     srmilter::cli::xmain(&config)
 }
 
