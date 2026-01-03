@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Run cargo fmt and check for changes
+cargo fmt -- --check
+if [ $? -ne 0 ]; then
+    echo "Error: cargo fmt found unformatted code. Run 'cargo fmt' first."
+    exit 1
+fi
+
+# Run cargo clippy and fail on warnings
+cargo clippy --all-targets -- -D warnings
+if [ $? -ne 0 ]; then
+    echo "Error: cargo clippy found warnings."
+    exit 1
+fi
+
+exit 0
