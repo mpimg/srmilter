@@ -222,13 +222,6 @@ pub trait FullEmailClassifier {
     fn classify(&self, mail_info: &MailInfo) -> ClassifyResult;
 }
 
-pub struct AllwayOkayFullEmailClassifier();
-impl FullEmailClassifier for AllwayOkayFullEmailClassifier {
-    fn classify(&self, _mail_info: &MailInfo) -> ClassifyResult {
-        ClassifyResult::Accept
-    }
-}
-
 pub enum ClassifierStorage<'a> {
     Borrowed(&'a dyn FullEmailClassifier),
     Owned(Arc<dyn FullEmailClassifier + Send + Sync>),
