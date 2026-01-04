@@ -8,26 +8,24 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 pub mod cli;
-pub mod daemon;
+mod daemon;
 mod macros;
-pub mod milter;
+mod milter;
 mod reader_extention;
 pub mod spamhaus_zen;
 
-pub use reader_extention::*;
-
 #[derive(Default)]
-pub struct MailInfoStorage {
-    pub sender: String,
-    pub recipients: Vec<String>,
-    pub macros: HashMap<String, String>,
-    pub id: String, // postfix queue ident
-    pub mail_buffer: Vec<u8>,
+struct MailInfoStorage {
+    sender: String,
+    recipients: Vec<String>,
+    macros: HashMap<String, String>,
+    id: String, // postfix queue ident
+    mail_buffer: Vec<u8>,
 }
 
 pub struct MailInfo<'a> {
-    pub storage: &'a MailInfoStorage,
-    pub msg: mail_parser::Message<'a>,
+    storage: &'a MailInfoStorage,
+    msg: mail_parser::Message<'a>,
 }
 
 impl MailInfo<'_> {
@@ -281,7 +279,7 @@ impl<'a> ConfigBuilder<'a> {
     }
 }
 
-pub fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
+fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
     if let Some(ref c) = config.full_mail_classifier {
         let classifier: &dyn FullEmailClassifier = match c {
             ClassifierStorage::Borrowed(b) => *b,
@@ -304,7 +302,7 @@ pub fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResu
     }
 }
 
-pub type ClassifyFunction = fn(&MailInfo) -> ClassifyResult;
+type ClassifyFunction = fn(&MailInfo) -> ClassifyResult;
 
 pub struct FullEmailFnClassifier(ClassifyFunction);
 
@@ -320,7 +318,7 @@ impl FullEmailClassifier for FullEmailFnClassifier {
     }
 }
 
-pub type ClassifyFunctionWithCtx<C> = fn(&C, &MailInfo) -> ClassifyResult;
+type ClassifyFunctionWithCtx<C> = fn(&C, &MailInfo) -> ClassifyResult;
 
 pub struct FullEmailFnClassifierWithCtx<'a, C> {
     user_ctx: &'a C,

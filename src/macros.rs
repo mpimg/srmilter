@@ -2,7 +2,7 @@
 #[macro_export]
 macro_rules! log {
     ($mi: expr, $($args:tt)*) => {
-        println!("{}: {}", $mi.storage.id, format_args!($($args)*));
+        println!("{}: {}", $mi.get_id(), format_args!($($args)*));
     }
 }
 
