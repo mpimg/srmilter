@@ -202,6 +202,24 @@ impl MailInfo<'_> {
     pub fn log(&self, msg: &str) {
         eprintln!("{}: {}", self.storage.id, msg);
     }
+
+    #[must_use]
+    pub fn accept(&self, msg: &str) -> ClassifyResult {
+        self.log(&format!("{} ({})", ClassifyResult::Accept.uc(), msg));
+        ClassifyResult::Accept
+    }
+
+    #[must_use]
+    pub fn quarantine(&self, msg: &str) -> ClassifyResult {
+        self.log(&format!("{} ({})", ClassifyResult::Quarantine.uc(), msg));
+        ClassifyResult::Quarantine
+    }
+
+    #[must_use]
+    pub fn reject(&self, msg: &str) -> ClassifyResult {
+        self.log(&format!("{} ({})", ClassifyResult::Reject.uc(), msg));
+        ClassifyResult::Reject
+    }
 }
 
 #[allow(dead_code)]
