@@ -18,6 +18,7 @@ macro_rules! _result {
     }
 }
 
+#[deprecated = "use struct MailInfo methods instead"]
 #[macro_export]
 macro_rules! accept {
     ($mi: expr, $($args:tt)*) => {
@@ -28,6 +29,7 @@ macro_rules! accept {
     }
 }
 
+#[deprecated = "use struct MailInfo methods instead"]
 #[macro_export]
 macro_rules! quarantine {
     ($mi: expr, $($args:tt)*) => {
@@ -38,6 +40,7 @@ macro_rules! quarantine {
     }
 }
 
+#[deprecated = "use struct MailInfo methods instead"]
 #[macro_export]
 macro_rules! reject {
     ($mi: expr, $($args:tt)*) => {
