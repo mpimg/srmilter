@@ -7,7 +7,7 @@ fn main() -> impl std::process::Termination {
     // this classifier is NOT compatible with --threads mode
     let classifier = FullEmailFnClassifier::new(classify);
     let config = Config::builder().full_mail_classifier(&classifier).build();
-    srmilter::cli::xmain(&config)
+    srmilter::cli::cli(&config)
 }
 
 #[allow(unused_variables)]

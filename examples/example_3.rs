@@ -47,7 +47,7 @@ fn main() -> impl std::process::Termination {
     // Create classifier with context reference
     let classifier = FullEmailFnClassifierWithCtx::new(&ctx, classify);
     let config = Config::builder().full_mail_classifier(&classifier).build();
-    srmilter::cli::xmain(&config)
+    srmilter::cli::cli(&config)
 }
 
 #[allow(unused_variables)]

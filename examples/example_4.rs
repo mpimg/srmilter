@@ -54,7 +54,7 @@ fn main() -> impl std::process::Termination {
     let config = Config::builder()
         .full_mail_classifier_arc(classifier)
         .build();
-    srmilter::cli::xmain(&config)
+    srmilter::cli::cli(&config)
 }
 
 #[allow(unused_variables)]

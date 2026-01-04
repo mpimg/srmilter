@@ -109,7 +109,11 @@ enum Command {
     Dump(DumpArgs),
 }
 
+#[deprecated = "use srmilter::cli::cli instead"]
 pub fn xmain(config: &Config) -> Result<(), Box<dyn Error>> {
+    cli(config)
+}
+pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match cli.command {
         Command::Test {
