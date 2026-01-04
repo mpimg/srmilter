@@ -1,3 +1,4 @@
+#[deprecated = "use struct MailInfo log() method instead"]
 #[macro_export]
 macro_rules! log {
     ($mi: expr, $($args:tt)*) => {
