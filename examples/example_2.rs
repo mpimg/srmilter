@@ -1,7 +1,5 @@
 use lazy_regex::regex_is_match;
-use srmilter::{
-    _result, ClassifyResult, Config, FullEmailFnClassifier, MailInfo, accept, quarantine,
-};
+use srmilter::{ClassifyResult, Config, FullEmailFnClassifier, MailInfo};
 use std::sync::Arc;
 
 fn main() -> impl std::process::Termination {
@@ -26,19 +24,19 @@ pub fn classify(mail_info: &MailInfo) -> ClassifyResult {
     let spam_score = mail_info.get_spam_score();
 
     if regex_is_match!("Täääst", subject) {
-        quarantine!(mail_info);
+        return mail_info.quarantine("banned subject");
     }
 
     if !mail_info.get_other_header("X-Mailru-Msgtype").is_empty() {
         if from_address.ends_with("@iscb.org") || from_address.ends_with("@news.arraystar.com") {
-            accept!(mail_info);
+            return mail_info.accept("Mailru but whitelisted");
         }
-        quarantine!(mail_info);
+        return mail_info.quarantine("Mailru");
     }
 
     if regex_is_match!("for your business", text) {
-        quarantine!(mail_info);
+        return mail_info.quarantine("banned text in message body");
     }
 
-    accept!(mail_info, "default");
+    mail_info.accept("default")
 }

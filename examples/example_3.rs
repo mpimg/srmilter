@@ -1,6 +1,5 @@
 use srmilter::{
-    _result, ClassifyResult, Config, FullEmailFnClassifierWithCtx, MailInfo, accept,
-    array_contains, quarantine, read_array, reject,
+    ClassifyResult, Config, FullEmailFnClassifierWithCtx, MailInfo, array_contains, read_array,
 };
 
 /// Context struct holding configuration and lists loaded at startup.
@@ -57,13 +56,13 @@ fn classify(ctx: &ClassifierContext, mail_info: &MailInfo) -> ClassifyResult {
 
     // Check blocklist first - reject known bad senders
     if array_contains(&ctx.blocklist_senders, from_address) {
-        reject!(mail_info, "sender on blocklist");
+        return mail_info.reject("sender on blocklist");
     }
 
     // Check allowlist - accept trusted domains
     for domain in &ctx.allowlist_domains {
         if from_address.ends_with(&format!("@{domain}")) {
-            accept!(mail_info, "domain on allowlist");
+            return mail_info.accept("domain on allowlist");
         }
     }
 
@@ -71,9 +70,9 @@ fn classify(ctx: &ClassifierContext, mail_info: &MailInfo) -> ClassifyResult {
     let subject_lower = subject.to_lowercase();
     for keyword in &ctx.quarantine_keywords {
         if subject_lower.contains(&keyword.to_lowercase()) {
-            quarantine!(mail_info, "subject contains quarantine keyword");
+            return mail_info.quarantine("subject contains quarantine keyword");
         }
     }
 
-    accept!(mail_info, "default");
+    mail_info.accept("default")
 }
