@@ -30,7 +30,6 @@ pub struct MailInfo<'a> {
     pub msg: mail_parser::Message<'a>,
 }
 
-#[allow(dead_code)]
 impl MailInfo<'_> {
     pub fn get_from_address(&self) -> &str {
         self.msg
@@ -222,7 +221,6 @@ impl MailInfo<'_> {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ClassifyResult {
     Accept,
