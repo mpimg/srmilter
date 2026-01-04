@@ -1,4 +1,4 @@
-use crate::{MailInfo, log};
+use crate::MailInfo;
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::ToSocketAddrs;
 
@@ -42,7 +42,7 @@ pub fn in_spamhaus_zen(mail_info: &MailInfo) -> bool {
         };
         if let Ok(sal) = format!("{lookup}:0").to_socket_addrs() {
             for sa in sal {
-                log!(&mail_info, "Spamhaus zen: {ip}: {}", sa.ip());
+                mail_info.log(&format!("Spamhaus zen: {ip}: {}", sa.ip()));
                 ret = true;
             }
         }
@@ -113,26 +113,24 @@ pub fn ip_in_spamhaus_zen<Iter: Iterator<Item = IpAddr>>(
     if let Some(first_ip) = r {
         for response_ip in lookup_ip(first_ip) {
             if reject_on_first_ip(response_ip) {
-                log!(
-                    mail_info,
+                mail_info.log(&format!(
                     "spamhaus reject first ip {first_ip}: {response_ip}"
-                );
+                ));
                 ret = true;
             } else {
-                log!(
-                    mail_info,
+                mail_info.log(&format!(
                     "spamhaus ignore first ip {first_ip}: {response_ip}"
-                );
+                ));
             }
         }
     }
     for ip in ips {
         for response_ip in lookup_ip(ip) {
             if reject_on_any_ip(response_ip) {
-                log!(mail_info, "spamhaus reject ip {ip}: {response_ip}");
+                mail_info.log(&format!("spamhaus reject ip {ip}: {response_ip}"));
                 ret = true;
             } else {
-                log!(mail_info, "spamhaus ignore ip {ip}: {response_ip}");
+                mail_info.log(&format!("spamhaus ignore ip {ip}: {response_ip}"));
             }
         }
     }

@@ -1,6 +1,6 @@
 use lazy_regex::regex_is_match;
 use srmilter::{
-    _result, ClassifyResult, Config, FullEmailFnClassifier, MailInfo, accept, log, quarantine,
+    _result, ClassifyResult, Config, FullEmailFnClassifier, MailInfo, accept, quarantine,
 };
 use std::sync::Arc;
 

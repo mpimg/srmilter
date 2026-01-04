@@ -8,11 +8,11 @@ macro_rules! log {
 #[macro_export]
 macro_rules! _result {
     ($mi: expr, $result_val: expr $(,)?) => {
-        log!($mi, "{} (by {} line {})", $result_val.uc(), file!(), line!());
+        $mi.log(&format!("{} (by {} line {})", $result_val.uc(), file!(), line!()));
         return $result_val;
     };
     ($mi: expr, $result_val: expr, $($args:tt)* ) => {
-        log!($mi, "{} ({})", $result_val.uc(), format_args!($($args)*));
+        $mi.log(&format!("{} ({})", $result_val.uc(), format_args!($($args)*)));
         return $result_val;
     }
 }

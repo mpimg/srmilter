@@ -1,6 +1,6 @@
 use srmilter::{
     _result, ClassifyResult, Config, FullEmailFnClassifierWithCtxArc, MailInfo, accept,
-    array_contains, log, quarantine, read_array, reject,
+    array_contains, quarantine, read_array, reject,
 };
 use std::sync::Arc;
 

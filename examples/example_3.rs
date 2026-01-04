@@ -1,6 +1,6 @@
 use srmilter::{
     _result, ClassifyResult, Config, FullEmailFnClassifierWithCtx, MailInfo, accept,
-    array_contains, log, quarantine, read_array, reject,
+    array_contains, quarantine, read_array, reject,
 };
 
 /// Context struct holding configuration and lists loaded at startup.
