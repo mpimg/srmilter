@@ -247,6 +247,7 @@ pub enum ClassifierStorage<'a> {
 
 pub struct Config<'a> {
     full_mail_classifier: Option<ClassifierStorage<'a>>,
+    fork_mode_enabled: bool,
 }
 
 impl<'a> Config<'a> {
@@ -258,6 +259,7 @@ impl<'a> Config<'a> {
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
     full_mail_classifier: Option<ClassifierStorage<'a>>,
+    fork_mode_enabled: bool,
 }
 
 impl<'a> ConfigBuilder<'a> {
@@ -272,9 +274,14 @@ impl<'a> ConfigBuilder<'a> {
         self.full_mail_classifier = Some(ClassifierStorage::Owned(classifier));
         self
     }
+    pub fn enable_fork_mode(mut self) -> Self {
+        self.fork_mode_enabled = true;
+        self
+    }
     pub fn build(self) -> Config<'a> {
         Config {
             full_mail_classifier: self.full_mail_classifier,
+            fork_mode_enabled: self.fork_mode_enabled,
         }
     }
 }

@@ -353,6 +353,7 @@ pub fn daemon(
                         // Create thread-local Config with Owned classifier
                         let thread_config = Config {
                             full_mail_classifier: Some(ClassifierStorage::Owned(classifier_arc)),
+                            fork_mode_enabled: false,
                         };
 
                         if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
