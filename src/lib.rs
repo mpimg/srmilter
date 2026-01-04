@@ -198,6 +198,10 @@ impl MailInfo<'_> {
         self.get_trusted_received_header_iter(good_domain)
             .filter_map(|r| r.from_ip)
     }
+
+    pub fn log(&self, msg: &str) {
+        eprintln!("{}: {}", self.storage.id, msg);
+    }
 }
 
 #[allow(dead_code)]
