@@ -1,3 +1,11 @@
+//! Spamhaus ZEN DNSBL lookup utilities.
+//!
+//! This module provides functions to check IP addresses against the Spamhaus ZEN
+//! blocklist via DNS queries. ZEN combines multiple Spamhaus lists (SBL, XBL, PBL).
+//!
+//! See <https://docs.spamhaus.com/datasets/docs/source/10-data-type-documentation/datasets/040-zones.html>
+//! for details on Spamhaus zones.
+
 use crate::MailInfo;
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::ToSocketAddrs;
@@ -33,6 +41,12 @@ fn spamhaus_v6(ip: Ipv6Addr) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// Checks if any IP in the email's `Received:` headers is listed in Spamhaus ZEN.
+///
+/// This function logs all Spamhaus responses but does not apply rejection logic.
+/// Returns `true` if any IP was found in the blocklist (for any reason).
+///
+/// For production use with selective rejection, prefer [`ip_in_spamhaus_zen`].
 pub fn in_spamhaus_zen(mail_info: &MailInfo) -> bool {
     let mut ret = false;
     for ip in mail_info.recevied_ip_iter() {
@@ -104,6 +118,25 @@ fn lookup_ip(ip: IpAddr) -> Vec<Ipv4Addr> {
     out
 }
 
+/// Checks specific IPs against Spamhaus ZEN with differentiated rejection rules.
+///
+/// This function applies stricter rules to the first IP (typically the sender's MTA)
+/// versus subsequent hops in the delivery chain:
+///
+/// - **First IP**: Rejects on XBL (compromised hosts) and PBL-inferred (Spamhaus-detected
+///   dynamic IP space)
+/// - **Subsequent IPs**: Only rejects on XBL (compromised hosts)
+///
+/// This differentiation helps avoid false positives from legitimate relays while
+/// still blocking mail from compromised machines.
+///
+/// # Example
+///
+/// ```ignore
+/// if ip_in_spamhaus_zen(mail_info, mail_info.foreign_ip_iter(".mx.example.com")) {
+///     return mail_info.reject("sender IP in Spamhaus ZEN");
+/// }
+/// ```
 pub fn ip_in_spamhaus_zen<Iter: Iterator<Item = IpAddr>>(
     mail_info: &MailInfo,
     mut ips: Iter,

@@ -113,6 +113,27 @@ enum Command {
 pub fn xmain(config: &Config) -> Result<(), Box<dyn Error>> {
     cli(config)
 }
+
+/// Main entry point for the milter CLI.
+///
+/// Parses command-line arguments and runs the appropriate subcommand:
+///
+/// - `daemon [address] [--fork N] [--threads N] [--truncate N]` - Run the milter server
+///   (default address: `0.0.0.0:7044`)
+/// - `test <file> [sender] [recipients...]` - Test the classifier against an `.eml` file
+/// - `dump <file> [-H] [-b] [--html]` - Dump parsed email headers and/or body
+///
+/// # Example
+///
+/// ```ignore
+/// fn main() -> impl std::process::Termination {
+///     let classifier = FullEmailFnClassifier::new(my_classifier);
+///     let config = Config::builder()
+///         .full_mail_classifier(&classifier)
+///         .build();
+///     srmilter::cli::cli(&config)
+/// }
+/// ```
 pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match cli.command {
