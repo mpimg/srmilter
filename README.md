@@ -21,7 +21,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-srmilter = "1.0"
+srmilter = "2.0"
 ```
 
 ### Basic Example
