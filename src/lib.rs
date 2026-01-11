@@ -558,12 +558,7 @@ pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
 
 /// Checks if an exact match for `needle` exists in `haystack`.
 pub fn array_contains(haystack: &[String], needle: &str) -> bool {
-    for s in haystack {
-        if s == needle {
-            return true;
-        }
-    }
-    false
+    haystack.iter().any(|s| s == needle)
 }
 
 #[cfg(test)]
