@@ -109,6 +109,8 @@ impl MailInfo<'_> {
         &self.msg
     }
     /// Returns the value of any header by name.
+    // Explicit lifetime required: HeaderName::Other takes Cow<'a, str> and the
+    // lifetime propagates through the method chain, constraining the return type.
     pub fn get_other_header<'a>(&'a self, name: &'a str) -> &'a str {
         self.msg
             .header(HeaderName::Other(Borrowed(name)))
