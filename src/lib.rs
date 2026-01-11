@@ -406,14 +406,14 @@ fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
             let mail_info = MailInfo { storage, msg };
             classifier.classify(&mail_info)
         } else {
-            println!(
+            eprintln!(
                 "{}: ACCEPT (because of failure to parse message)",
                 storage.id,
             );
             ClassifyResult::Accept
         }
     } else {
-        println!("{}: ACCEPT (no classifier configured)", storage.id);
+        eprintln!("{}: ACCEPT (no classifier configured)", storage.id);
         ClassifyResult::Accept
     }
 }
