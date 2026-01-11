@@ -120,6 +120,11 @@ fn lookup_ip(ip: IpAddr) -> Vec<Ipv4Addr> {
 
 /// Checks specific IPs against Spamhaus ZEN with differentiated rejection rules.
 ///
+/// # Warning
+///
+/// **Experimental API.** The policy implemented by this function currently does not
+/// work well at all. Use with caution.
+///
 /// This function applies stricter rules to the first IP (typically the sender's MTA)
 /// versus subsequent hops in the delivery chain:
 ///
