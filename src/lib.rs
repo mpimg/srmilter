@@ -293,7 +293,7 @@ pub trait FullEmailClassifier {
 }
 
 /// Internal storage for classifier references.
-pub enum ClassifierStorage<'a> {
+pub(crate) enum ClassifierStorage<'a> {
     /// A borrowed reference to a classifier.
     Borrowed(&'a dyn FullEmailClassifier),
     /// An owned, thread-safe classifier wrapped in `Arc`.
