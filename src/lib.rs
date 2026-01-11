@@ -260,7 +260,7 @@ impl MailInfo<'_> {
 }
 
 /// The result of classifying an email message.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClassifyResult {
     /// Accept the email for delivery.
     Accept,
