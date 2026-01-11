@@ -208,8 +208,12 @@ impl MailInfo<'_> {
         self.get_trusted_received_header_iter(good_domain).next()
     }
 
-    /// Returns an iterator over all IP addresses from `Received:` headers.
+    #[deprecated(since = "2.0.0", note = "please use `received_ip_iter` instead")]
     pub fn recevied_ip_iter(&self) -> impl Iterator<Item = IpAddr> {
+        self.received_ip_iter()
+    }
+    /// Returns an iterator over all IP addresses from `Received:` headers.
+    pub fn received_ip_iter(&self) -> impl Iterator<Item = IpAddr> {
         self.msg
             .header_values(HeaderName::Received)
             .filter_map(|h| {

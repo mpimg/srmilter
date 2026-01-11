@@ -49,7 +49,7 @@ fn spamhaus_v6(ip: Ipv6Addr) -> String {
 /// For production use with selective rejection, prefer [`ip_in_spamhaus_zen`].
 pub fn in_spamhaus_zen(mail_info: &MailInfo) -> bool {
     let mut ret = false;
-    for ip in mail_info.recevied_ip_iter() {
+    for ip in mail_info.received_ip_iter() {
         let lookup = match ip {
             IpAddr::V4(ip) => spamhaus_v4(ip),
             IpAddr::V6(ip) => spamhaus_v6(ip),
