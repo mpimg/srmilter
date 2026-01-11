@@ -152,8 +152,9 @@ pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
                 return Err("--fork and --threads are mutually exclusive".into());
             }
             if fork_max.is_some() && !config.fork_mode_enabled {
-                eprintln!(
-                    "Warning: --fork used but main has not opted in to fork mode. This is deprecated."
+                return Err(
+                    "--fork mode not available: Needs to be opted in by main milter program."
+                        .into(),
                 );
             }
             daemon(
