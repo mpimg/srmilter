@@ -109,11 +109,6 @@ enum Command {
     Dump(DumpArgs),
 }
 
-#[deprecated = "use srmilter::cli::cli instead"]
-pub fn xmain(config: &Config) -> Result<(), Box<dyn Error>> {
-    cli(config)
-}
-
 /// Main entry point for the milter CLI.
 ///
 /// Parses command-line arguments and runs the appropriate subcommand:

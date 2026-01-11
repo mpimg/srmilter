@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 pub mod cli;
 mod daemon;
-mod macros;
 mod milter;
 mod reader_extention;
 pub mod spamhaus_zen;
