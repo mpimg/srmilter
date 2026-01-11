@@ -89,7 +89,7 @@ impl MailInfo<'_> {
         self.msg.body_text(0).unwrap_or(Borrowed(""))
     }
     /// Returns all SMTP envelope recipients (RCPT TO addresses).
-    pub fn get_recipients(&self) -> &Vec<String> {
+    pub fn get_recipients(&self) -> &[String] {
         &self.storage.recipients
     }
     /// Returns the single recipient if there is exactly one, otherwise `""`.
