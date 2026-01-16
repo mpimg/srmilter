@@ -24,9 +24,22 @@ struct MailInfoStorage {
 
 /// Provides read-only access to a parsed email message.
 ///
-/// This struct is passed to classifier functions and provides convenient accessors
-/// for email headers, body content, envelope information, and logging utilities.
-/// All string accessor methods return `""` if the requested field is missing.
+/// This is the main interface for classifier functions to query information about an email.
+/// It provides convenient accessors for email headers, body content, envelope information,
+/// and logging utilities.
+///
+/// # Default Values
+///
+/// Accessor methods return default values (empty string `""` for text fields, `0.0` for
+/// numeric fields like spam score) when the requested information is missing or unavailable.
+/// This design allows classifiers to use simple expressions (e.g., string comparisons,
+/// pattern matching) without needing special-case code for missing fields.
+///
+/// # Decision Methods
+///
+/// When a classifier reaches a final decision, it should use one of the decision methods:
+/// [`accept`](Self::accept), [`reject`](Self::reject), or [`quarantine`](Self::quarantine).
+/// These methods log the decision with a reason and return the appropriate [`ClassifyResult`].
 pub struct MailInfo<'a> {
     storage: &'a MailInfoStorage,
     msg: mail_parser::Message<'a>,
