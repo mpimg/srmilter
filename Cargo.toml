@@ -8,6 +8,7 @@ repository = "https://github.molgen.mpg.de/molgen/srmilter"
 readme = "README.md"
 keywords = ["milter", "postfix", "email", "mail-filter", "spam"]
 categories = ["email", "network-programming"]
+license = "EUPL-1.2"
 
 [features]
 default = ["systemd"]

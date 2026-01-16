@@ -151,3 +151,10 @@ See the `examples/` directory for complete working examples:
 - `example_2.rs` - Thread-safe classifier for `--threads` mode
 - `example_3.rs` - Classifier with borrowed context
 - `example_4.rs` - Thread-safe classifier with `Arc` context
+
+## License
+
+Copyright © 2025 Donald Buczek <buczek@molgen.mpg.de>
+
+Licensed under the European Union Public Licence (EUPL), Version 1.2.
+See the [LICENSE](LICENSE) file for details.
