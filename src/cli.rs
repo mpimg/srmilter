@@ -156,13 +156,7 @@ pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
                         .into(),
                 );
             }
-            daemon(
-                config,
-                &args.address,
-                args.fork_max,
-                args.threads_max,
-                args.truncate,
-            )
+            daemon(config, &args)
         }
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }

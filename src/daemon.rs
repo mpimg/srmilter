@@ -1,3 +1,4 @@
+use crate::cli::DaemonArgs;
 use crate::milter::constants::*;
 use crate::reader_extention::{BufReadExt, ReadExt};
 use crate::{ClassifierStorage, ClassifyResult, Config, MailInfoStorage, classify_mail};
@@ -245,18 +246,12 @@ fn install_signal_handler() {
     }
 }
 
-pub fn daemon(
-    config: &Config,
-    address: &str,
-    max_children: u16,
-    max_threads: u16,
-    truncate: usize,
-) -> Result<(), Box<dyn Error>> {
+pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "systemd")]
     let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
         Some(fd) => unsafe { Socket::from_raw_fd(fd) },
         None => {
-            let address: SocketAddr = address.parse()?;
+            let address: SocketAddr = args.address.parse()?;
             let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
             socket.set_reuse_address(true)?;
             socket.bind(&address.into())?;
@@ -267,7 +262,7 @@ pub fn daemon(
 
     #[cfg(not(feature = "systemd"))]
     let listen_socket = {
-        let address: SocketAddr = address.parse()?;
+        let address: SocketAddr = args.address.parse()?;
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
         socket.set_reuse_address(true)?;
         socket.bind(&address.into())?;
@@ -275,19 +270,19 @@ pub fn daemon(
         socket
     };
 
-    if max_children > 0 && max_threads > 0 {
+    if args.fork_max > 0 && args.threads_max > 0 {
         return Err("Cannot use both fork and thread modes simultaneously".into());
     }
 
     // Validate classifier is Arc-based when using threads
-    if max_threads > 0
+    if args.threads_max > 0
         && let Some(ref classifier_storage) = config.full_mail_classifier
         && matches!(classifier_storage, ClassifierStorage::Borrowed(_))
     {
         return Err("Threading mode requires Arc-based classifier. Use ConfigBuilder::full_mail_classifier_arc() instead of full_mail_classifier()".into());
     }
 
-    let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if max_threads > 0 {
+    let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if args.threads_max > 0 {
         Some(Arc::new((Mutex::new(0), Condvar::new())))
     } else {
         None
@@ -295,20 +290,20 @@ pub fn daemon(
 
     install_signal_handler();
     loop {
-        if max_children > 0 {
-            while CHILDREN_CNT.load(Ordering::Relaxed) >= max_children {
+        if args.fork_max > 0 {
+            while CHILDREN_CNT.load(Ordering::Relaxed) >= args.fork_max {
                 pause()
             }
         } else if let Some(ref state) = thread_state {
             let (lock, cvar) = state.as_ref();
             let mut count = lock.lock().unwrap();
-            while *count >= max_threads {
+            while *count >= args.threads_max {
                 count = cvar.wait(count).unwrap();
             }
         }
         match listen_socket.accept() {
             Ok((socket, _addr)) => {
-                if max_children > 0 {
+                if args.fork_max > 0 {
                     match unsafe { fork() } {
                         Ok(ForkResult::Parent { .. }) => {
                             CHILDREN_CNT.fetch_add(1, Ordering::Relaxed);
@@ -318,7 +313,7 @@ pub fn daemon(
                             let stream: TcpStream = socket.into();
                             let reader = BufReader::new(&stream);
                             let writer = BufWriter::new(&stream);
-                            match process_client(config, reader, writer, truncate) {
+                            match process_client(config, reader, writer, args.truncate) {
                                 Ok(_) => exit(0),
                                 Err(e) => {
                                     eprintln!("{e}");
@@ -328,7 +323,7 @@ pub fn daemon(
                         }
                         Err(e) => eprintln!("fork: {e}"),
                     }
-                } else if max_threads > 0 {
+                } else if args.threads_max > 0 {
                     let state_clone = thread_state.as_ref().unwrap().clone();
 
                     // Increment thread count
@@ -346,6 +341,7 @@ pub fn daemon(
                         _ => unreachable!("Already validated classifier is Arc-based"),
                     };
 
+                    let truncate = args.truncate;
                     thread::spawn(move || {
                         let reader = BufReader::new(&stream);
                         let writer = BufWriter::new(&stream);
@@ -370,7 +366,7 @@ pub fn daemon(
                     let stream: TcpStream = socket.into();
                     let reader = BufReader::new(&stream);
                     let writer = BufWriter::new(&stream);
-                    if let Err(e) = process_client(config, reader, writer, truncate) {
+                    if let Err(e) = process_client(config, reader, writer, args.truncate) {
                         eprintln!("{e}");
                     }
                 }
