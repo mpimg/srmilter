@@ -90,6 +90,18 @@ struct DumpArgs {
     dump_html: bool,
 }
 
+#[derive(clap::Args, Debug)]
+pub(crate) struct DaemonArgs {
+    #[arg(default_value = "0.0.0.0:7044")]
+    pub address: String,
+    #[arg(long = "fork", default_value_t = 0, hide_default_value = true)]
+    pub fork_max: u16,
+    #[arg(long = "threads", default_value_t = 0, hide_default_value = true)]
+    pub threads_max: u16,
+    #[arg(long = "truncate", default_value_t = usize::MAX, hide_default_value = true, value_name = "BYTES")]
+    pub truncate: usize,
+}
+
 #[derive(clap::Subcommand)]
 enum Command {
     Test {
@@ -97,16 +109,7 @@ enum Command {
         sender: Option<String>,
         recipients: Option<Vec<String>>,
     },
-    Daemon {
-        #[arg(default_value = "0.0.0.0:7044")]
-        address: String,
-        #[arg(long = "fork", default_value_t = 0, hide_default_value = true)]
-        fork_max: u16,
-        #[arg(long = "threads", default_value_t = 0, hide_default_value = true)]
-        threads_max: u16,
-        #[arg(long = "truncate", default_value_t = usize::MAX, hide_default_value = true, value_name = "BYTES")]
-        truncate: usize,
-    },
+    Daemon(DaemonArgs),
     Dump(DumpArgs),
 }
 
@@ -143,22 +146,23 @@ pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
             sender.unwrap_or_default(),
             recipients.unwrap_or_default(),
         ),
-        Command::Daemon {
-            address,
-            fork_max,
-            threads_max,
-            truncate,
-        } => {
-            if fork_max > 0 && threads_max > 0 {
+        Command::Daemon(args) => {
+            if args.fork_max > 0 && args.threads_max > 0 {
                 return Err("--fork and --threads are mutually exclusive".into());
             }
-            if fork_max > 0 && !config.fork_mode_enabled {
+            if args.fork_max > 0 && !config.fork_mode_enabled {
                 return Err(
                     "--fork mode not available: Needs to be opted in by main milter program."
                         .into(),
                 );
             }
-            daemon(config, &address, fork_max, threads_max, truncate)
+            daemon(
+                config,
+                &args.address,
+                args.fork_max,
+                args.threads_max,
+                args.truncate,
+            )
         }
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
