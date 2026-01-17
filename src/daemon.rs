@@ -392,3 +392,172 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
 
     Ok(())
 }
+
+fn simulate_client(config: &Config) -> Result<(), Box<dyn Error>> {
+    let storage = MailInfoStorage {
+        id: "test".into(),
+        recipients: ["testrecipient".into()].into(),
+        sender: "testsender".into(),
+        mail_buffer: b"From: me\nTo: yu\nSubject: test\n\nTest".to_vec(),
+        ..Default::default()
+    };
+    let _result = classify_mail(config, &storage);
+    Ok(())
+}
+
+#[rustfmt::skip]
+#[allow(unused_variables, dead_code)]
+pub fn simulate(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
+//    #[cfg(feature = "systemd")]
+//    let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
+//        Some(fd) => unsafe { Socket::from_raw_fd(fd) },
+//        None => {
+//            let address: SocketAddr = args.address.parse()?;
+//            let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+//            socket.set_reuse_address(true)?;
+//            socket.bind(&address.into())?;
+//            socket.listen(1)?;
+//            socket
+//        }
+//    };
+//
+//    #[cfg(not(feature = "systemd"))]
+//    let listen_socket = {
+//        let address: SocketAddr = args.address.parse()?;
+//        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+//        socket.set_reuse_address(true)?;
+//        socket.bind(&address.into())?;
+//        socket.listen(1)?;
+//        socket
+//    };
+//
+    if args.fork_max > 0 && args.threads_max > 0 {
+        return Err("Cannot use both fork and thread modes simultaneously".into());
+    }
+
+    // Validate classifier is Arc-based when using threads
+    if args.threads_max > 0
+        && let Some(ref classifier_storage) = config.full_mail_classifier
+        && matches!(classifier_storage, ClassifierStorage::Borrowed(_))
+    {
+        return Err("Threading mode requires Arc-based classifier. Use ConfigBuilder::full_mail_classifier_arc() instead of full_mail_classifier()".into());
+    }
+
+    let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if args.threads_max > 0 {
+        Some(Arc::new((Mutex::new(0), Condvar::new())))
+    } else {
+        None
+    };
+
+    install_signal_handler();
+    let mut simulate_cnt = 8;
+    loop {
+        if simulate_cnt == 0 {
+            break;
+        } else {
+            simulate_cnt -= 1
+        }
+        if args.fork_max > 0 {
+            while CHILDREN_CNT.load(Ordering::Relaxed) >= args.fork_max {
+                pause()
+            }
+        } else if let Some(ref state) = thread_state {
+            let (lock, cvar) = state.as_ref();
+            let mut count = lock.lock().unwrap();
+            while *count >= args.threads_max {
+                count = cvar.wait(count).unwrap();
+            }
+        }
+//        match listen_socket.accept() {
+//            Ok((socket, _addr)) => {
+                if args.fork_max > 0 {
+                    match unsafe { fork() } {
+                        Ok(ForkResult::Parent { .. }) => {
+                            CHILDREN_CNT.fetch_add(1, Ordering::Relaxed);
+                        }
+                        Ok(ForkResult::Child) => {
+//                            drop(listen_socket);
+//                            let stream: TcpStream = socket.into();
+//                            let reader = BufReader::new(&stream);
+//                            let writer = BufWriter::new(&stream);
+//                            match process_client(config, reader, writer, args.truncate) {
+                            match simulate_client(config) {
+                                Ok(_) => exit(0),
+                                Err(e) => {
+                                    eprintln!("{e}");
+                                    exit(1)
+                                }
+                            }
+                        }
+                        Err(e) => eprintln!("fork: {e}"),
+                    }
+                } else if args.threads_max > 0 {
+                    let state_clone = thread_state.as_ref().unwrap().clone();
+
+                    // Increment thread count
+                    {
+                        let (lock, _) = state_clone.as_ref();
+                        let mut count = lock.lock().unwrap();
+                        *count += 1;
+                    }
+
+//                    let stream: TcpStream = socket.into();
+
+                    // Extract Arc from config (validated above)
+                    let classifier_arc = match config.full_mail_classifier.as_ref().unwrap() {
+                        ClassifierStorage::Owned(arc) => arc.clone(),
+                        _ => unreachable!("Already validated classifier is Arc-based"),
+                    };
+
+                    let truncate = args.truncate;
+                    thread::spawn(move || {
+//                        let reader = BufReader::new(&stream);
+//                        let writer = BufWriter::new(&stream);
+
+                        // Create thread-local Config with Owned classifier
+                        let thread_config = Config {
+                            full_mail_classifier: Some(ClassifierStorage::Owned(classifier_arc)),
+                            fork_mode_enabled: false,
+                        };
+
+//                        if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
+                        if let Err(e) = simulate_client(&thread_config) {
+                            eprintln!("thread error: {e}");
+                        }
+
+                        // Decrement count and signal
+                        let (lock, cvar) = &*state_clone;
+                        let mut count = lock.lock().unwrap();
+                        *count -= 1;
+                        cvar.notify_one();
+                    });
+                } else {
+//                    let stream: TcpStream = socket.into();
+//                    let reader = BufReader::new(&stream);
+//                    let writer = BufWriter::new(&stream);
+//                    if let Err(e) = process_client(config, reader, writer, args.truncate) {
+                    if let Err(e) = simulate_client(config) {
+                        eprintln!("{e}");
+                    }
+                }
+//            }
+//            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => (),
+//            Err(e) => eprintln!("fork: {e}"),
+//        }
+        if FLAG_SHUTDOWN.load(Ordering::Relaxed) {
+            break;
+        }
+    }
+
+    // Wait for active threads to complete
+    if let Some(ref state) = thread_state {
+        let (lock, cvar) = state.as_ref();
+        let mut count = lock.lock().unwrap();
+        while *count > 0 {
+            eprintln!("Waiting for {} threads to complete", *count);
+            let result = cvar.wait_timeout(count, Duration::from_secs(1)).unwrap();
+            count = result.0;
+        }
+    }
+    Ok(())
+}

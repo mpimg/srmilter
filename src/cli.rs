@@ -1,4 +1,4 @@
-use crate::daemon::daemon;
+use crate::daemon::{daemon, simulate};
 use crate::{Config, MailInfoStorage, classify_mail};
 use clap::Parser;
 use mail_parser::{MessageParser, MimeHeaders};
@@ -110,6 +110,7 @@ enum Command {
         recipients: Option<Vec<String>>,
     },
     Daemon(DaemonArgs),
+    Simulate(DaemonArgs),
     Dump(DumpArgs),
 }
 
@@ -157,6 +158,19 @@ pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
                 );
             }
             daemon(config, &args)
+        }
+        Command::Simulate(args) => {
+            eprintln!("WARNING: simulate is unstable, temprary and only for development");
+            if args.fork_max > 0 && args.threads_max > 0 {
+                return Err("--fork and --threads are mutually exclusive".into());
+            }
+            if args.fork_max > 0 && !config.fork_mode_enabled {
+                return Err(
+                    "--fork mode not available: Needs to be opted in by main milter program."
+                        .into(),
+                );
+            }
+            simulate(config, &args)
         }
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
