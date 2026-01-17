@@ -98,13 +98,14 @@ enum Command {
         recipients: Option<Vec<String>>,
     },
     Daemon {
-        address: Option<String>,
-        #[arg(long = "fork")]
-        fork_max: Option<u16>,
-        #[arg(long = "threads")]
-        threads_max: Option<u16>,
-        #[arg(long = "truncate")]
-        truncate: Option<usize>,
+        #[arg(default_value = "0.0.0.0:7044")]
+        address: String,
+        #[arg(long = "fork", default_value_t = 0, hide_default_value = true)]
+        fork_max: u16,
+        #[arg(long = "threads", default_value_t = 0, hide_default_value = true)]
+        threads_max: u16,
+        #[arg(long = "truncate", default_value_t = usize::MAX, hide_default_value = true, value_name = "BYTES")]
+        truncate: usize,
     },
     Dump(DumpArgs),
 }
@@ -148,22 +149,16 @@ pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
             threads_max,
             truncate,
         } => {
-            if fork_max.is_some() && threads_max.is_some() {
+            if fork_max > 0 && threads_max > 0 {
                 return Err("--fork and --threads are mutually exclusive".into());
             }
-            if fork_max.is_some() && !config.fork_mode_enabled {
+            if fork_max > 0 && !config.fork_mode_enabled {
                 return Err(
                     "--fork mode not available: Needs to be opted in by main milter program."
                         .into(),
                 );
             }
-            daemon(
-                config,
-                &address.unwrap_or("0.0.0.0:7044".to_string()),
-                fork_max.unwrap_or(0),
-                threads_max.unwrap_or(0),
-                truncate.unwrap_or(usize::MAX),
-            )
+            daemon(config, &address, fork_max, threads_max, truncate)
         }
         Command::Dump(dump_args) => cmd_dump(&dump_args),
     }
