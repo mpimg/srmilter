@@ -1,6 +1,6 @@
 [package]
 name = "srmilter"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2024"
 authors = ["Donald Buczek <buczek@molgen.mpg.de>"]
 description = "A Rust library for building mail filter (milter) daemons that integrate with Postfix"
