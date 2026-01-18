@@ -308,9 +308,9 @@ pub trait FullEmailClassifier {
 /// Internal storage for classifier references.
 pub(crate) enum ClassifierStorage<'a> {
     /// A borrowed reference to a classifier.
-    Borrowed(&'a dyn FullEmailClassifier),
+    Borrowed(&'a dyn ClassifyEmail),
     /// An owned, thread-safe classifier wrapped in `Arc`.
-    Owned(Arc<dyn FullEmailClassifier + Send + Sync>),
+    Owned(Arc<dyn ClassifyEmail + Send + Sync>),
 }
 
 /// Configuration for the milter daemon.
@@ -346,7 +346,7 @@ pub struct ConfigBuilder<'a> {
 
 impl<'a> ConfigBuilder<'a> {
     /// Sets a borrowed classifier for single-threaded or fork mode.
-    pub fn full_mail_classifier(mut self, classifier: &'a dyn FullEmailClassifier) -> Self {
+    pub fn full_mail_classifier(mut self, classifier: &'a dyn ClassifyEmail) -> Self {
         self.full_mail_classifier = Some(ClassifierStorage::Borrowed(classifier));
         self
     }
@@ -355,7 +355,7 @@ impl<'a> ConfigBuilder<'a> {
     /// This is required when using `--threads` as the classifier must be `Send + Sync`.
     pub fn full_mail_classifier_arc(
         mut self,
-        classifier: Arc<dyn FullEmailClassifier + Send + Sync>,
+        classifier: Arc<dyn ClassifyEmail + Send + Sync>,
     ) -> Self {
         self.full_mail_classifier = Some(ClassifierStorage::Owned(classifier));
         self
@@ -412,7 +412,7 @@ impl<'a> ConfigBuilder<'a> {
 
 fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
     if let Some(ref c) = config.full_mail_classifier {
-        let classifier: &dyn FullEmailClassifier = match c {
+        let classifier: &dyn ClassifyEmail = match c {
             ClassifierStorage::Borrowed(b) => *b,
             ClassifierStorage::Owned(arc) => arc.as_ref(),
         };
@@ -458,12 +458,6 @@ impl FullEmailFnClassifier {
     }
 }
 
-impl FullEmailClassifier for FullEmailFnClassifier {
-    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
-        self.0(mail_info)
-    }
-}
-
 type ClassifyFunctionWithCtx<C> = fn(&C, &MailInfo) -> ClassifyResult;
 
 /// A classifier that wraps a function with a borrowed context.
@@ -500,12 +494,6 @@ impl<'a, C> FullEmailFnClassifierWithCtx<'a, C> {
     }
 }
 
-impl<'a, C> FullEmailClassifier for FullEmailFnClassifierWithCtx<'a, C> {
-    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
-        (self.f)(self.user_ctx, mail_info)
-    }
-}
-
 /// Thread-safe version of [`FullEmailFnClassifierWithCtx`] that owns the context via `Arc`.
 ///
 /// Use this with [`ConfigBuilder::full_mail_classifier_arc()`] when running with `--threads`.
@@ -529,12 +517,6 @@ impl<C> FullEmailFnClassifierWithCtxArc<C> {
     /// Creates a new thread-safe classifier with the given `Arc`-wrapped context.
     pub fn new(user_ctx: Arc<C>, f: ClassifyFunctionWithCtx<C>) -> Self {
         Self { user_ctx, f }
-    }
-}
-
-impl<C: Send + Sync> FullEmailClassifier for FullEmailFnClassifierWithCtxArc<C> {
-    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
-        (self.f)(&self.user_ctx, mail_info)
     }
 }
 
@@ -602,10 +584,30 @@ impl ConfigBuilder<'_> {
     /// Set the classifier
     pub fn email_classifier<T>(mut self, classifier: T) -> Self
     where
-        T: ClassifyEmail + FullEmailClassifier + Send + Sync + 'static,
+        T: ClassifyEmail + Send + Sync + 'static,
     {
         self.full_mail_classifier = Some(ClassifierStorage::Owned(Arc::new(classifier)));
         self
+    }
+}
+
+// migration helper
+
+impl ClassifyEmail for FullEmailFnClassifier {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        self.0(mail_info)
+    }
+}
+
+impl<'a, C> ClassifyEmail for FullEmailFnClassifierWithCtx<'a, C> {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        (self.f)(self.user_ctx, mail_info)
+    }
+}
+
+impl<C: Send + Sync> ClassifyEmail for FullEmailFnClassifierWithCtxArc<C> {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        (self.f)(&self.user_ctx, mail_info)
     }
 }
 
