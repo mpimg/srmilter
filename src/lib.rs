@@ -538,6 +538,77 @@ impl<C: Send + Sync> FullEmailClassifier for FullEmailFnClassifierWithCtxArc<C> 
     }
 }
 
+/// Trait for implementing email classifiers.
+pub trait ClassifyEmail {
+    /// Classifies the given email and returns the classification decision.
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult;
+}
+
+/// General purpose classifier
+///
+/// Use [`EmailClassifier::builder()`] to construct a new classifier.
+pub struct EmailClassifier<C> {
+    user_ctx: C,
+    f: Option<ClassifyFunctionWithCtx<C>>,
+}
+
+impl<C> ClassifyEmail for EmailClassifier<C> {
+    fn classify(&self, mail_info: &MailInfo) -> ClassifyResult {
+        if let Some(f) = self.f {
+            f(&self.user_ctx, mail_info)
+        } else {
+            mail_info.accept("no classifier function registered")
+        }
+    }
+}
+
+/// Builder for constructing a [`EmailClassifier`]
+///
+/// Create the builder with [`EmailClassifier::builder()`]
+pub struct EmailClassifierBuilder<C> {
+    user_ctx: C,
+    f: Option<ClassifyFunctionWithCtx<C>>,
+}
+
+impl<C> EmailClassifierBuilder<C> {
+    /// Build the final [`EmailClassifier`]
+    pub fn build(self) -> EmailClassifier<C> {
+        EmailClassifier {
+            user_ctx: self.user_ctx,
+            f: self.f,
+        }
+    }
+    /// Register the callback function to classify the received email
+    pub fn classify_fn(mut self, f: ClassifyFunctionWithCtx<C>) -> Self {
+        self.f = Some(f);
+        self
+    }
+}
+
+impl<C> EmailClassifier<C> {
+    /// Create a new [`EmailClassifierBuilder`] for constructing a new [`EmailClassifier`]
+    ///
+    /// `user_ctx` is moved into the builder so that the lifetime can be
+    /// managed thread-safely by the library.
+    ///
+    /// If `user_ctx` is not really needed, the unit type (`()`) can be used.
+    ///
+    pub fn builder(user_ctx: C) -> EmailClassifierBuilder<C> {
+        EmailClassifierBuilder { user_ctx, f: None }
+    }
+}
+
+impl ConfigBuilder<'_> {
+    /// Set the classifier
+    pub fn email_classifier<T>(mut self, classifier: T) -> Self
+    where
+        T: ClassifyEmail + FullEmailClassifier + Send + Sync + 'static,
+    {
+        self.full_mail_classifier = Some(ClassifierStorage::Owned(Arc::new(classifier)));
+        self
+    }
+}
+
 /// Reads lines from a file, stripping comments and whitespace.
 ///
 /// Lines are trimmed of leading/trailing whitespace. Content after `#` on each line
