@@ -1,15 +1,17 @@
 use lazy_regex::regex_is_match;
-use srmilter::{ClassifyResult, Config, FullEmailFnClassifier, MailInfo};
+use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo};
 
 fn main() -> impl std::process::Termination {
-    // this classifier is NOT compatible with --threads mode
-    let classifier = FullEmailFnClassifier::new(classify);
-    let config = Config::builder().full_mail_classifier(&classifier).build();
+    let classifier = EmailClassifier::builder(()).classify_fn(classify).build();
+    let config = Config::builder()
+        .email_classifier(classifier)
+        .enable_fork_mode()
+        .build();
     srmilter::cli::cli(&config)
 }
 
 #[allow(unused_variables)]
-pub fn classify(mail_info: &MailInfo) -> ClassifyResult {
+pub fn classify(_ctx: &(), mail_info: &MailInfo) -> ClassifyResult {
     let msg = mail_info.get_message();
     let from_address = mail_info.get_from_address();
     let from_name = mail_info.get_from_name();

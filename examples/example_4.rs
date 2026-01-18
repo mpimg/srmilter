@@ -1,7 +1,4 @@
-use srmilter::{
-    ClassifyResult, Config, FullEmailFnClassifierWithCtxArc, MailInfo, array_contains, read_array,
-};
-use std::sync::Arc;
+use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo, array_contains, read_array};
 
 /// Context struct holding configuration and lists loaded at startup.
 /// This is passed to the classify function on every email.
@@ -44,14 +41,11 @@ fn main() -> impl std::process::Termination {
         }
     };
 
-    // Wrap context in Arc for thread-safe sharing
-    let ctx = Arc::new(ctx);
+    let classifier = EmailClassifier::builder(ctx).classify_fn(classify).build();
 
-    // Create thread-safe classifier with Arc-wrapped context
-    // This is compatible with --threads mode
-    let classifier = Arc::new(FullEmailFnClassifierWithCtxArc::new(ctx, classify));
     let config = Config::builder()
-        .full_mail_classifier_arc(classifier)
+        .email_classifier(classifier)
+        .enable_fork_mode()
         .build();
     srmilter::cli::cli(&config)
 }
