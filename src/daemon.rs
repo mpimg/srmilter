@@ -1,6 +1,6 @@
 use crate::cli::DaemonArgs;
 use crate::milter::constants::*;
-use crate::reader_extention::{BufReadExt, ReadExt};
+use crate::reader_extention::{BufReadExt as _, ReadExt as _};
 use crate::{ClassifierStorage, ClassifyResult, Config, MailInfoStorage, classify_mail};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
@@ -9,10 +9,10 @@ use nix::unistd::{ForkResult, Pid, fork, pause};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::collections::HashMap;
 use std::error::Error;
-use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, Write};
+use std::io::{BufRead, BufReader, BufWriter, Cursor, Read as _, Seek as _, Write};
 use std::net::{SocketAddr, TcpStream};
 #[cfg(feature = "systemd")]
-use std::os::fd::FromRawFd;
+use std::os::fd::FromRawFd as _;
 use std::process::exit;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Condvar, Mutex};

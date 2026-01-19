@@ -3,7 +3,7 @@ use std::borrow::Cow::Borrowed;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead as _, BufReader};
 use std::net::IpAddr;
 use std::sync::Arc;
 
