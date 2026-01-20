@@ -295,6 +295,7 @@ impl ClassifyResult {
 /// Configuration for the milter daemon.
 ///
 /// Use [`Config::builder()`] to create a new configuration.
+#[derive(Clone)]
 pub struct Config {
     full_mail_classifier: Option<Arc<dyn ClassifyEmail + Send + Sync>>,
     fork_mode_enabled: bool,

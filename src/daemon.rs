@@ -326,25 +326,14 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
                     }
 
                     let stream: TcpStream = socket.into();
-
-                    // Extract Arc from config
-                    let classifier_arc = config.full_mail_classifier.as_ref().unwrap().clone();
-
+                    let thread_config = config.clone();
                     let truncate = args.truncate;
                     thread::spawn(move || {
                         let reader = BufReader::new(&stream);
                         let writer = BufWriter::new(&stream);
-
-                        // Create thread-local Config with Owned classifier
-                        let thread_config = Config {
-                            full_mail_classifier: Some(classifier_arc),
-                            fork_mode_enabled: false,
-                        };
-
                         if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
                             eprintln!("thread error: {e}");
                         }
-
                         // Decrement count and signal
                         let (lock, cvar) = &*state_clone;
                         let mut count = lock.lock().unwrap();
@@ -485,24 +474,15 @@ pub fn simulate(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>
 //                    let stream: TcpStream = socket.into();
 
                     // Extract Arc from config
-                    let classifier_arc = config.full_mail_classifier.as_ref().unwrap().clone();
-
+                    let thread_config = config.clone();
                     let truncate = args.truncate;
                     thread::spawn(move || {
 //                        let reader = BufReader::new(&stream);
 //                        let writer = BufWriter::new(&stream);
-
-                        // Create thread-local Config with Owned classifier
-                        let thread_config = Config {
-                            full_mail_classifier: Some(classifier_arc),
-                            fork_mode_enabled: false,
-                        };
-
 //                        if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
                         if let Err(e) = simulate_client(&thread_config) {
                             eprintln!("thread error: {e}");
                         }
-
                         // Decrement count and signal
                         let (lock, cvar) = &*state_clone;
                         let mut count = lock.lock().unwrap();
