@@ -1,7 +1,7 @@
 use crate::cli::DaemonArgs;
 use crate::milter::constants::*;
 use crate::reader_extention::{BufReadExt as _, ReadExt as _};
-use crate::{ClassifierStorage, ClassifyResult, Config, MailInfoStorage, classify_mail};
+use crate::{ClassifyResult, Config, MailInfoStorage, classify_mail};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
@@ -274,14 +274,6 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
         return Err("Cannot use both fork and thread modes simultaneously".into());
     }
 
-    // Validate classifier is Arc-based when using threads
-    if args.threads_max > 0
-        && let Some(ref classifier_storage) = config.full_mail_classifier
-        && matches!(classifier_storage, ClassifierStorage::Borrowed(_))
-    {
-        return Err("Threading mode requires Arc-based classifier. Use ConfigBuilder::full_mail_classifier_arc() instead of full_mail_classifier()".into());
-    }
-
     let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if args.threads_max > 0 {
         Some(Arc::new((Mutex::new(0), Condvar::new())))
     } else {
@@ -335,11 +327,8 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
 
                     let stream: TcpStream = socket.into();
 
-                    // Extract Arc from config (validated above)
-                    let classifier_arc = match config.full_mail_classifier.as_ref().unwrap() {
-                        ClassifierStorage::Owned(arc) => arc.clone(),
-                        _ => unreachable!("Already validated classifier is Arc-based"),
-                    };
+                    // Extract Arc from config
+                    let classifier_arc = config.full_mail_classifier.as_ref().unwrap().clone();
 
                     let truncate = args.truncate;
                     thread::spawn(move || {
@@ -348,7 +337,7 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
 
                         // Create thread-local Config with Owned classifier
                         let thread_config = Config {
-                            full_mail_classifier: Some(ClassifierStorage::Owned(classifier_arc)),
+                            full_mail_classifier: Some(classifier_arc),
                             fork_mode_enabled: false,
                         };
 
@@ -435,14 +424,6 @@ pub fn simulate(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>
         return Err("Cannot use both fork and thread modes simultaneously".into());
     }
 
-    // Validate classifier is Arc-based when using threads
-    if args.threads_max > 0
-        && let Some(ref classifier_storage) = config.full_mail_classifier
-        && matches!(classifier_storage, ClassifierStorage::Borrowed(_))
-    {
-        return Err("Threading mode requires Arc-based classifier. Use ConfigBuilder::full_mail_classifier_arc() instead of full_mail_classifier()".into());
-    }
-
     let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if args.threads_max > 0 {
         Some(Arc::new((Mutex::new(0), Condvar::new())))
     } else {
@@ -503,11 +484,8 @@ pub fn simulate(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>
 
 //                    let stream: TcpStream = socket.into();
 
-                    // Extract Arc from config (validated above)
-                    let classifier_arc = match config.full_mail_classifier.as_ref().unwrap() {
-                        ClassifierStorage::Owned(arc) => arc.clone(),
-                        _ => unreachable!("Already validated classifier is Arc-based"),
-                    };
+                    // Extract Arc from config
+                    let classifier_arc = config.full_mail_classifier.as_ref().unwrap().clone();
 
                     let truncate = args.truncate;
                     thread::spawn(move || {
@@ -516,7 +494,7 @@ pub fn simulate(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>
 
                         // Create thread-local Config with Owned classifier
                         let thread_config = Config {
-                            full_mail_classifier: Some(ClassifierStorage::Owned(classifier_arc)),
+                            full_mail_classifier: Some(classifier_arc),
                             fork_mode_enabled: false,
                         };
 
