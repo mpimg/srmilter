@@ -8,7 +8,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 
 ## Features
 
-- Full milter protocol implementation for Postfix integration
+- Milter protocol implementation for Postfix integration
 - Email parsing via `mail-parser` crate
 - Multiple concurrency modes: single-threaded, forked processes, or threaded
 - Spamhaus ZEN DNSBL lookup utilities
@@ -17,12 +17,18 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 
 ## Usage
 
-Add to your `Cargo.toml`:
+1. Create a new binary crate:
+   ```bash
+   cargo init myfilter
+   cd myfilter
+   ```
 
-```toml
-[dependencies]
-srmilter = "3.0"
-```
+2. Add srmilter as a dependency:
+   ```bash
+   cargo add srmilter
+   ```
+
+3. Edit `src/main.rs` to create your milter binary (see example below).
 
 ### Example
 

@@ -1,10 +1,10 @@
 [package]
 name = "srmilter"
-version = "3.0.0"
+version = "4.0.0"
 edition = "2024"
 authors = ["Donald Buczek <buczek@molgen.mpg.de>"]
 description = "A Rust library for building mail filter (milter) daemons that integrate with Postfix"
-repository = "https://github.molgen.mpg.de/molgen/srmilter"
+repository = "https://github.com/mpimg/srmilter"
 readme = "README.md"
 keywords = ["milter", "postfix", "email", "mail-filter", "spam"]
 categories = ["email", "network-programming"]
