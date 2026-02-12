@@ -268,26 +268,55 @@ impl MailInfo<'_> {
         self.log(&format!("{} ({})", ClassifyResult::Reject.uc(), msg));
         ClassifyResult::Reject
     }
+
+    /// Logs `log_msg` to stderr and returns [`ClassifyResult::RejectWithMsg`]. `client_msg` is sent
+    /// to the client with the fixed extended status code "550 5.7.1". It needs to be a valid SMTP
+    /// error text (printable ASCII). '%' characters are allowed and don't have special meaning,
+    /// The necessary conversion to '%%' for the milter wire protocol is done by the library.
+    ///
+    /// `client_msg` is silently truncated to max 200 characters when sent to the MUA. A longer message
+    /// seems unreasonable and might trigger bugs in Postfix [^1] and remote clients.
+    ///
+    /// [^1]: Probably not. Reason: Wietse Zweitze Venema the Great.
+    #[must_use]
+    pub fn reject_with_message<T: Into<Cow<'static, [u8]>>>(
+        &self,
+        log_msg: &str,
+        client_msg: T,
+    ) -> ClassifyResult {
+        let client_msg = client_msg.into();
+        self.log(&format!(
+            "{} ({}) \"{}\"",
+            ClassifyResult::Reject.uc(),
+            log_msg,
+            String::from_utf8_lossy(&client_msg)
+        ));
+        ClassifyResult::RejectWithMsg(client_msg)
+    }
 }
 
 /// The result of classifying an email message.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ClassifyResult {
     /// Accept the email for delivery.
     Accept,
     /// Reject the email with a 5xx error to the sender.
     Reject,
+    /// Reject the email with "550 5.7.1" and a custom text part. See
+    /// [`MailInfo::reject_with_message`] for some constraints on the message.
+    RejectWithMsg(Cow<'static, [u8]>),
     /// Accept but hold the email in Postfix quarantine.
     Quarantine,
 }
 
 impl ClassifyResult {
-    /// Returns the uppercase string representation (`"ACCEPT"`, `"REJECT"`, or `"QUARANTINE"`).
+    /// Returns the uppercase string representation (`"ACCEPT"`, `"REJECT"`, `"REJECT_WITH_MSG"`, or `"QUARANTINE"`).
     pub fn uc(self) -> &'static str {
         match self {
             ClassifyResult::Accept => "ACCEPT",
             ClassifyResult::Reject => "REJECT",
+            ClassifyResult::RejectWithMsg(_) => "REJECT_WITH_MSG",
             ClassifyResult::Quarantine => "QUARANTINE",
         }
     }
