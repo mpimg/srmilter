@@ -262,13 +262,6 @@ impl MailInfo<'_> {
         ClassifyResult::Quarantine
     }
 
-    /// Logs a rejection message and returns [`ClassifyResult::Reject`].
-    #[must_use]
-    pub fn reject(&self, msg: &str) -> ClassifyResult {
-        self.log(&format!("{} ({})", ClassifyResult::Reject.uc(), msg));
-        ClassifyResult::Reject
-    }
-
     /// Logs `log_msg` to stderr and returns [`ClassifyResult::RejectWithMsg`]. `client_msg` is sent
     /// to the client with the fixed extended status code "550 5.7.1". It needs to be a valid SMTP
     /// error text (printable ASCII). '%' characters are allowed and don't have special meaning,
@@ -292,6 +285,17 @@ impl MailInfo<'_> {
             String::from_utf8_lossy(&client_msg)
         ));
         ClassifyResult::RejectWithMsg(client_msg)
+    }
+
+    /// Logs a rejection message and returns [`ClassifyResult::RejectWithMsg`].
+    /// The client reply has the message "Message refused (MSG_ID)" which is better
+    /// understandable that the default "Command rejected" message from
+    /// Postfix we would get from a [`ClassifyResult::Reject`].
+    /// The MSG_ID can be used to locate further information from the mail log.
+    #[must_use]
+    pub fn reject(&self, log_msg: &str) -> ClassifyResult {
+        let client_msg = [b"Message refused (", self.get_id().as_bytes(), b")"].concat();
+        self.reject_with_message(log_msg, client_msg)
     }
 }
 
