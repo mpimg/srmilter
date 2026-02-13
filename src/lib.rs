@@ -1,5 +1,5 @@
 use mail_parser::{HeaderName, MessageParser};
-use std::borrow::Cow::Borrowed;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
@@ -99,7 +99,7 @@ impl MailInfo<'_> {
     }
     /// Returns the first text/plain body part of the message.
     pub fn get_text(&self) -> std::borrow::Cow<'_, str> {
-        self.msg.body_text(0).unwrap_or(Borrowed(""))
+        self.msg.body_text(0).unwrap_or(Cow::Borrowed(""))
     }
     /// Returns all SMTP envelope recipients (RCPT TO addresses).
     pub fn get_recipients(&self) -> &[String] {
@@ -126,14 +126,14 @@ impl MailInfo<'_> {
     // lifetime propagates through the method chain, constraining the return type.
     pub fn get_other_header<'a>(&'a self, name: &'a str) -> &'a str {
         self.msg
-            .header(HeaderName::Other(Borrowed(name)))
+            .header(HeaderName::Other(Cow::Borrowed(name)))
             .and_then(|v| v.as_text())
             .unwrap_or("")
     }
     /// Returns the parsed `X-Spam-Score` header value, or `0.0` if missing or invalid.
     pub fn get_spam_score(&self) -> f32 {
         self.msg
-            .header(HeaderName::Other(Borrowed("X-Spam-Score")))
+            .header(HeaderName::Other(Cow::Borrowed("X-Spam-Score")))
             .and_then(|v| v.as_text())
             .and_then(|v| v.parse::<f32>().ok())
             .unwrap_or(0f32)
