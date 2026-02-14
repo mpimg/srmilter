@@ -1,5 +1,5 @@
 use mail_parser::{HeaderName, MessageParser};
-use std::borrow::Cow::Borrowed;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
@@ -99,7 +99,7 @@ impl MailInfo<'_> {
     }
     /// Returns the first text/plain body part of the message.
     pub fn get_text(&self) -> std::borrow::Cow<'_, str> {
-        self.msg.body_text(0).unwrap_or(Borrowed(""))
+        self.msg.body_text(0).unwrap_or(Cow::Borrowed(""))
     }
     /// Returns all SMTP envelope recipients (RCPT TO addresses).
     pub fn get_recipients(&self) -> &[String] {
@@ -126,14 +126,14 @@ impl MailInfo<'_> {
     // lifetime propagates through the method chain, constraining the return type.
     pub fn get_other_header<'a>(&'a self, name: &'a str) -> &'a str {
         self.msg
-            .header(HeaderName::Other(Borrowed(name)))
+            .header(HeaderName::Other(Cow::Borrowed(name)))
             .and_then(|v| v.as_text())
             .unwrap_or("")
     }
     /// Returns the parsed `X-Spam-Score` header value, or `0.0` if missing or invalid.
     pub fn get_spam_score(&self) -> f32 {
         self.msg
-            .header(HeaderName::Other(Borrowed("X-Spam-Score")))
+            .header(HeaderName::Other(Cow::Borrowed("X-Spam-Score")))
             .and_then(|v| v.as_text())
             .and_then(|v| v.parse::<f32>().ok())
             .unwrap_or(0f32)
@@ -262,31 +262,65 @@ impl MailInfo<'_> {
         ClassifyResult::Quarantine
     }
 
-    /// Logs a rejection message and returns [`ClassifyResult::Reject`].
+    /// Logs `log_msg` to stderr and returns [`ClassifyResult::RejectWithMsg`]. `client_msg` is sent
+    /// to the client with the fixed extended status code "550 5.7.1". It needs to be a valid SMTP
+    /// error text (printable ASCII). '%' characters are allowed and don't have special meaning,
+    /// The necessary conversion to '%%' for the milter wire protocol is done by the library.
+    ///
+    /// `client_msg` is silently truncated to max 200 characters when sent to the MUA. A longer message
+    /// seems unreasonable and might trigger bugs in Postfix [^1] and remote clients.
+    ///
+    /// [^1]: Probably not. Reason: Wietse Zweitze Venema the Great.
     #[must_use]
-    pub fn reject(&self, msg: &str) -> ClassifyResult {
-        self.log(&format!("{} ({})", ClassifyResult::Reject.uc(), msg));
-        ClassifyResult::Reject
+    pub fn reject_with_message<T: Into<Cow<'static, [u8]>>>(
+        &self,
+        log_msg: &str,
+        client_msg: T,
+    ) -> ClassifyResult {
+        let client_msg = client_msg.into();
+        self.log(&format!(
+            "{} ({}) \"{}\"",
+            ClassifyResult::Reject.uc(),
+            log_msg,
+            String::from_utf8_lossy(&client_msg)
+        ));
+        ClassifyResult::RejectWithMsg(client_msg)
+    }
+
+    /// Logs a rejection message and returns [`ClassifyResult::RejectWithMsg`].
+    /// The client reply has the message "Message refused (MSG_ID)" which is better
+    /// understandable that the default "Command rejected" message from
+    /// Postfix we would get from a [`ClassifyResult::Reject`].
+    /// The MSG_ID can be used to locate further information from the mail log.
+    #[must_use]
+    pub fn reject(&self, log_msg: &str) -> ClassifyResult {
+        let client_msg = [b"Message refused (", self.get_id().as_bytes(), b")"].concat();
+        self.reject_with_message(log_msg, client_msg)
     }
 }
 
 /// The result of classifying an email message.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClassifyResult {
     /// Accept the email for delivery.
     Accept,
     /// Reject the email with a 5xx error to the sender.
     Reject,
+    /// Reject the email with "550 5.7.1" and a custom text part. See
+    /// [`MailInfo::reject_with_message`] for some constraints on the message.
+    RejectWithMsg(Cow<'static, [u8]>),
     /// Accept but hold the email in Postfix quarantine.
     Quarantine,
 }
 
 impl ClassifyResult {
-    /// Returns the uppercase string representation (`"ACCEPT"`, `"REJECT"`, or `"QUARANTINE"`).
+    /// Returns the uppercase string representation (`"ACCEPT"`, `"REJECT"`, `"REJECT_WITH_MSG"`, or `"QUARANTINE"`).
     pub fn uc(self) -> &'static str {
         match self {
             ClassifyResult::Accept => "ACCEPT",
             ClassifyResult::Reject => "REJECT",
+            ClassifyResult::RejectWithMsg(_) => "REJECT_WITH_MSG",
             ClassifyResult::Quarantine => "QUARANTINE",
         }
     }

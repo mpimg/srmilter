@@ -7,6 +7,7 @@ use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::{ForkResult, Pid, fork, pause};
 use socket2::{Domain, Protocol, Socket, Type};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read as _, Seek as _, Write};
@@ -26,6 +27,63 @@ use std::time::Duration;
 
 static FLAG_SHUTDOWN: AtomicBool = AtomicBool::new(false);
 static CHILDREN_CNT: AtomicU16 = AtomicU16::new(0);
+
+fn dup_percent(s: Cow<[u8]>) -> Cow<[u8]> {
+    if !s.contains(&b'%') {
+        return s;
+    }
+    let mut out = Vec::with_capacity(s.len() + s.iter().filter(|&&b| b == b'%').count());
+    for &b in s.iter() {
+        out.push(b);
+        if b == b'%' {
+            out.push(b'%');
+        }
+    }
+    Cow::Owned(out)
+}
+
+#[test]
+fn test_dup_percent() {
+    assert_eq!(*dup_percent(b"".into()), *b"");
+    assert_eq!(*dup_percent(b"xxx".into()), *b"xxx");
+    assert_eq!(*dup_percent(b"%xx%x%".into()), *b"%%xx%%x%%");
+    let cow1: Cow<[u8]> = Cow::Owned(b"abcdefgh".to_vec());
+    let ptr1 = cow1.as_ptr();
+    let cow2 = dup_percent(cow1);
+    let ptr2 = cow2.as_ptr();
+    assert_eq!(*cow2, *b"abcdefgh");
+    assert_eq!(ptr1, ptr2);
+}
+
+fn truncate_to(s: Cow<[u8]>, max: usize) -> Cow<[u8]> {
+    if s.len() <= max {
+        s
+    } else {
+        match s {
+            Cow::Borrowed(b) => Cow::Borrowed(&b[..max]),
+            Cow::Owned(mut v) => {
+                if v.len() > max {
+                    v.truncate(max);
+                }
+                Cow::Owned(v)
+            }
+        }
+    }
+}
+
+#[test]
+fn test_truncate_to() {
+    assert_eq!(*truncate_to(b"".into(), 6), *b"");
+    assert_eq!(*truncate_to(b"abcd".into(), 0), *b"");
+    assert_eq!(*truncate_to(b"abcd".into(), 6), *b"abcd");
+    assert_eq!(*truncate_to(b"abcdefgh".into(), 6), *b"abcdef");
+    let cow1: Cow<[u8]> = Cow::Owned(b"abcdefgh".to_vec());
+    let ptr1 = cow1.as_ptr();
+    let cow2 = truncate_to(cow1, 6);
+    let ptr2 = cow2.as_ptr();
+    assert_eq!(*cow2, *b"abcdef");
+    assert_eq!(ptr1, ptr2);
+}
 
 fn process_client(
     config: &Config,
@@ -178,6 +236,27 @@ fn process_client(
                     ClassifyResult::Reject => {
                         writer.rewind()?;
                         writer.write_all(b"r")?; // SMFIR_REJECT
+                        stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                        stream_writer
+                            .write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                    }
+                    ClassifyResult::RejectWithMsg(msg) => {
+                        // Silently truncate the message text to max 200 characters. A longer message
+                        // seems unreasonable and might trigger bugs in the MUA or remote clients.
+                        // Our PDU limit to u32 length would need to be addressed anyway if we'd
+                        // allow giant strings.
+
+                        let msg = truncate_to(msg, 200);
+
+                        // Sendmail used '%' for format escapes. Postfix interprets all '%'-formatting
+                        // except '%%' as an escape for a single percent sign as a milter error.
+
+                        let msg = dup_percent(msg);
+
+                        writer.rewind()?;
+                        writer.write_all(b"y550 5.7.1 ")?;
+                        writer.write_all(&msg)?;
+                        writer.write_all(b"\0")?;
                         stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
