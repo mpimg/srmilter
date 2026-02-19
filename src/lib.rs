@@ -86,6 +86,26 @@ impl MailInfo<'_> {
             .and_then(|v| v.name())
             .unwrap_or("")
     }
+    /// Returns the email address from the `Reply-To:` header.
+    pub fn get_replyto_address(&self) -> &str {
+        self.msg
+            .header(HeaderName::ReplyTo)
+            .and_then(|v| v.as_address())
+            .and_then(|v| v.as_list())
+            .and_then(|v| v.first())
+            .and_then(|v| v.address())
+            .unwrap_or("")
+    }
+    /// Returns the display name from the `Reply-To:` header.
+    pub fn get_replyto_name(&self) -> &str {
+        self.msg
+            .header(HeaderName::ReplyTo)
+            .and_then(|v| v.as_address())
+            .and_then(|v| v.as_list())
+            .and_then(|v| v.first())
+            .and_then(|v| v.name())
+            .unwrap_or("")
+    }
     /// Returns the `Subject:` header value.
     pub fn get_subject(&self) -> &str {
         self.msg
