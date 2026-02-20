@@ -442,7 +442,6 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
         let (lock, cvar) = state.as_ref();
         let mut count = lock.lock().unwrap();
         while *count > 0 {
-            eprintln!("Waiting for {} threads to complete", *count);
             let result = cvar.wait_timeout(count, Duration::from_secs(1)).unwrap();
             count = result.0;
         }
