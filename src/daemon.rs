@@ -9,6 +9,8 @@ use nix::unistd::{ForkResult, Pid, fork, pause};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::env;
+use std::env::VarError;
 use std::error::Error;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read as _, Seek as _, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -325,29 +327,34 @@ fn install_signal_handler() {
     }
 }
 
-pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
+fn get_listen_fd() -> Result<Option<c_int>, Box<dyn Error>> {
+    match env::var("SRMILTER_LISTEN_FD") {
+        Err(VarError::NotPresent) => (),
+        Err(e) => return Err(e.into()),
+        Ok(string) => return Ok(Some(string.parse()?)),
+    }
     #[cfg(feature = "systemd")]
-    let listen_socket = match systemd::daemon::listen_fds(false).unwrap().iter().next() {
-        Some(fd) => unsafe { Socket::from_raw_fd(fd) },
-        None => {
-            let address: SocketAddr = args.address.parse()?;
-            let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-            socket.set_reuse_address(true)?;
-            socket.bind(&address.into())?;
-            socket.listen(1)?;
-            socket
-        }
-    };
+    match systemd::daemon::listen_fds(false).unwrap().iter().next() {
+        None => (),
+        Some(fd) => return Ok(Some(fd)),
+    }
+    Ok(None)
+}
 
-    #[cfg(not(feature = "systemd"))]
-    let listen_socket = {
-        let address: SocketAddr = args.address.parse()?;
-        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-        socket.set_reuse_address(true)?;
-        socket.bind(&address.into())?;
-        socket.listen(1)?;
-        socket
-    };
+fn get_listen_socket(args: &DaemonArgs) -> Result<Socket, Box<dyn Error>> {
+    if let Some(fd) = get_listen_fd()? {
+        return Ok(unsafe { Socket::from_raw_fd(fd) });
+    }
+    let address: SocketAddr = args.address.parse()?;
+    let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+    socket.set_reuse_address(true)?;
+    socket.bind(&address.into())?;
+    socket.listen(1)?;
+    Ok(socket)
+}
+
+pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
+    let listen_socket = get_listen_socket(args)?;
 
     if args.fork_max > 0 && args.threads_max > 0 {
         return Err("Cannot use both fork and thread modes simultaneously".into());
