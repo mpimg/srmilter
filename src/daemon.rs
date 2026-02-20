@@ -429,7 +429,8 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => (),
-            Err(e) => eprintln!("fork: {e}"),
+            // todo: retry on ENETDOWN, EPROTO, ENOPROTOOPT... see accept(2)
+            Err(e) => return Err(format!("accept: {e}").into()),
         }
         if FLAG_SHUTDOWN.load(Ordering::Relaxed) {
             break;
