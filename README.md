@@ -80,6 +80,59 @@ myfilter dump <file.eml> [-H] [-b] [--html]
 - `--fork N`: Fork up to N child processes (requires `enable_fork_mode()`)
 - `--threads N`: Use up to N threads
 
+## systemd Deployment with Zero-Downtime Reloads
+
+`reload-proxy` is a supervisor binary that enables zero-downtime reloads of a
+srmilter-based daemon under systemd socket activation.
+
+### How it works
+
+1. systemd creates the listen socket and passes it to `reload-proxy` as FD 3
+   (via `LISTEN_FDS`).
+2. `reload-proxy` forwards the socket to the milter daemon via the
+   `SRMILTER_LISTEN_FD=3` environment variable and spawns it as a child.
+3. On `systemctl reload`, systemd sends `SIGHUP` to `reload-proxy`, which
+   spawns a new child instance (sharing the same listen socket), then sends
+   `SIGINT` to the old instance.
+4. Both instances overlap briefly; the old one finishes its in-flight
+   connections before exiting. No connections are dropped.
+
+### Unit files
+
+`mymilter.socket`:
+```ini
+[Socket]
+ListenStream=127.0.0.1:7044
+
+[Install]
+WantedBy=sockets.target
+```
+
+`mymilter.service`:
+```ini
+[Unit]
+Requires=mymilter.socket
+After=mymilter.socket
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/reload-proxy /usr/local/bin/mymilter daemon --threads 64
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=15s
+SyslogFacility=mail
+SyslogIdentifier=mymilter
+```
+
+`TimeoutStopSec` should be set to the maximum time you are willing to wait
+for in-flight connections to complete. On `systemctl stop`, systemd sends `SIGTERM`
+to `reload-proxy`, which will then also terminate its children.
+
+### Triggering a reload
+
+```bash
+systemctl reload mymilter
+```
+
 ## Postfix Configuration
 
 Add to your Postfix `main.cf`:
