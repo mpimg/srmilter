@@ -98,16 +98,15 @@ fn main() -> ExitCode {
         if GOT_SIGHUP
             .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
             .is_ok()
+            && let Some(new_pid) = fork_child(&mut command)
         {
-            if let Some(new_pid) = fork_child(&mut command) {
-                for old_pid in &children {
-                    eprintln!("send SIGINT to {old_pid}");
-                    if let Err(e) = kill(*old_pid, Signal::SIGINT) {
-                        eprintln!("kill -INT {old_pid}: {e}");
-                    }
+            for old_pid in &children {
+                eprintln!("send SIGINT to {old_pid}");
+                if let Err(e) = kill(*old_pid, Signal::SIGINT) {
+                    eprintln!("kill -INT {old_pid}: {e}");
                 }
-                children.push(new_pid);
             }
+            children.push(new_pid);
         }
     }
 }
