@@ -33,30 +33,29 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 ### Example
 
 ```rust
-use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo, read_array, array_contains};
+use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo};
 
-struct MyContext {
-    blocklist: Vec<String>,
+struct Ctx {
+    // whatever
 }
 
 fn main() -> impl std::process::Termination {
-    let ctx = MyContext {
-        blocklist: read_array("/etc/srmilter/blocklist.txt").unwrap_or_default(),
-    };
-    let classifier = EmailClassifier::builder(ctx).classify_fn(classify).build();
-    let config = Config::builder()
-        .email_classifier(classifier)
-        .enable_fork_mode()
-        .build();
+    let ctx = Ctx {};
+    let classifier =
+EmailClassifier::builder(ctx).classify_fn(classify).build();
+    let config = Config::builder().email_classifier(classifier).build();
     srmilter::cli::cli(&config)
 }
 
-fn classify(ctx: &MyContext, mail_info: &MailInfo) -> ClassifyResult {
-    if array_contains(&ctx.blocklist, mail_info.get_from_address()) {
-        return mail_info.reject("sender on blocklist");
+fn classify(_ctx: &Ctx, mail_info: &MailInfo) -> ClassifyResult {
+    let from_address = mail_info.get_from_address();
+
+    if from_address == "spammer@example.com" {
+        return mail_info.reject("banned from_address");
     }
     mail_info.accept("default")
 }
+
 ```
 
 ## CLI Commands
