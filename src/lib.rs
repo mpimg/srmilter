@@ -423,6 +423,7 @@ impl ConfigBuilder {
     /// If your classifier is a pure function that only reads from immutable context data
     /// loaded at startup, fork mode is safe and can provide good isolation between
     /// connections.
+    #[deprecated(since = "6.0.0", note = "use threaded mode")]
     pub fn enable_fork_mode(mut self) -> Self {
         self.fork_mode_enabled = true;
         self

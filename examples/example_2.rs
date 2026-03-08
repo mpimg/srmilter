@@ -47,10 +47,7 @@ fn main() -> impl std::process::Termination {
 
     let classifier = EmailClassifier::builder(ctx).classify_fn(classify).build();
 
-    let config = Config::builder()
-        .email_classifier(classifier)
-        .enable_fork_mode()
-        .build();
+    let config = Config::builder().email_classifier(classifier).build();
     srmilter::cli::cli(&config)
 }
 

@@ -10,7 +10,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 
 - Milter protocol implementation for Postfix integration
 - Email parsing via `mail-parser` crate
-- Multiple concurrency modes: single-threaded, forked processes, or threaded
+- Multithreading
 - Spamhaus ZEN DNSBL lookup utilities
 - systemd socket activation support (optional)
 - Built-in CLI with test and dump commands
@@ -64,7 +64,7 @@ The built-in CLI provides three subcommands:
 
 ```bash
 # Run the milter daemon (default: 0.0.0.0:7044)
-myfilter daemon [address] [--fork N] [--threads N] [--truncate N]
+myfilter daemon [address] [--threads N] [--truncate N]
 
 # Test classifier against an .eml file
 myfilter test <file.eml> [sender] [recipients...]
@@ -76,7 +76,6 @@ myfilter dump <file.eml> [-H] [-b] [--html]
 ### Concurrency Options
 
 - **Default**: Single-threaded, sequential processing
-- `--fork N`: Fork up to N child processes (requires `enable_fork_mode()`)
 - `--threads N`: Use up to N threads
 
 ## systemd Deployment with Zero-Downtime Reloads
