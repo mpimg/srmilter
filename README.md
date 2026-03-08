@@ -13,7 +13,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 - Multithreading
 - Spamhaus ZEN DNSBL lookup utilities
 - systemd socket activation support (optional)
-- Built-in CLI with test and dump commands
+- Built-in CLI
 
 ## Usage
 
@@ -68,9 +68,6 @@ myfilter daemon [address] [--threads N] [--truncate N]
 
 # Test classifier against an .eml file
 myfilter test <file.eml> [sender] [recipients...]
-
-# Dump parsed email headers and body
-myfilter dump <file.eml> [-H] [-b] [--html]
 ```
 
 ### Concurrency Options

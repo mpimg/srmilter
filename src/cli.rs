@@ -24,6 +24,7 @@ fn cmd_test(
 }
 
 fn cmd_dump(dump_args: &DumpArgs) -> Result<(), Box<dyn Error>> {
+    eprintln!("WARNING: dump command is deprecated!");
     let (dump_header, dump_body) = match (dump_args.header, dump_args.body) {
         (false, false) => (true, true),
         (dump_header, dump_body) => (dump_header, dump_body),
@@ -115,6 +116,7 @@ enum Command {
         recipients: Option<Vec<String>>,
     },
     Daemon(DaemonArgs),
+    #[command(about = "(Deprecated!)")]
     Dump(DumpArgs),
 }
 
