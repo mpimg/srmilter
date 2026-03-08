@@ -529,22 +529,7 @@ impl ConfigBuilder {
     }
 }
 
-/// Reads lines from a file, stripping comments and whitespace.
-///
-/// Lines are trimmed of leading/trailing whitespace. Content after `#` on each line
-/// is treated as a comment and ignored. Empty lines are skipped.
-///
-/// # Example
-///
-/// ```ignore
-/// // File contents:
-/// // # This is a comment
-/// // spammer@evil.com
-/// // blocked@example.com  # inline comment
-///
-/// let blocklist = read_array("/etc/srmilter/blocklist.txt")?;
-/// // blocklist = ["spammer@evil.com", "blocked@example.com"]
-/// ```
+#[deprecated(since = "6.0.0", note = "trivial function should be hand-rolled")]
 pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let file = File::open(filename).map_err(|e| format!("{filename}: {e}"))?;
     let reader = BufReader::new(file);
@@ -560,7 +545,7 @@ pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(out)
 }
 
-/// Checks if an exact match for `needle` exists in `haystack`.
+#[deprecated(since = "6.0.0", note = "trivial function should be hand-rolled")]
 pub fn array_contains(haystack: &[String], needle: &str) -> bool {
     haystack.iter().any(|s| s == needle)
 }
