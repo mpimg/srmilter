@@ -213,6 +213,33 @@ impl MailInfo<'_> {
         &self.storage.macros
     }
 
+    fn remove_enclosing_brackets(s: &str) -> &str {
+        if s.starts_with('[') && s.ends_with(']') {
+            &s[1..s.len() - 1]
+        } else {
+            s
+        }
+    }
+
+    /// Returns the client name and address from the MTA "_" macro
+    pub fn get_client_name_and_address(&self) -> (&str, &str) {
+        match self.storage.macros.get("_") {
+            Some(s) => {
+                // "github.molgen.mpg.de [141.14.220.169]"
+                // "unknown [141.80.232.51]"
+                let mut split = s.split(" ");
+                match split.next() {
+                    Some(name) => match split.next() {
+                        Some(ip) => (name, Self::remove_enclosing_brackets(ip)),
+                        None => (name, ""),
+                    },
+                    None => ("", ""),
+                }
+            }
+            None => ("", ""),
+        }
+    }
+
     /// Returns an iterator over all `Received:` headers in the message.
     pub fn get_received_header_iter(&self) -> impl Iterator<Item = &mail_parser::Received<'_>> {
         self.msg.headers().iter().filter_map(|h| {
@@ -224,6 +251,7 @@ impl MailInfo<'_> {
             }
         })
     }
+
     /// Returns an iterator over `Received:` headers starting from the first trusted one.
     ///
     /// Skips headers until finding one where the `by` field ends with `good_domain`.
