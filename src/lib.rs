@@ -207,6 +207,12 @@ impl MailInfo<'_> {
             ("".to_string(), "".to_string(), "".to_string())
         }
     }
+
+    /// Returns the MTA macros
+    pub fn get_macros(&self) -> &HashMap<String, String> {
+        &self.storage.macros
+    }
+
     /// Returns an iterator over all `Received:` headers in the message.
     pub fn get_received_header_iter(&self) -> impl Iterator<Item = &mail_parser::Received<'_>> {
         self.msg.headers().iter().filter_map(|h| {
