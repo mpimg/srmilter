@@ -1,4 +1,4 @@
-use mail_parser::{HeaderName, MessageParser};
+use mail_parser::{HeaderName, MessageParser, MessagePart};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
@@ -291,10 +291,16 @@ impl MailInfo<'_> {
                 }
             })
     }
+
     /// Returns an iterator over IP addresses from trusted `Received:` headers only.
     pub fn foreign_ip_iter(&self, good_domain: &str) -> impl Iterator<Item = IpAddr> {
         self.get_trusted_received_header_iter(good_domain)
             .filter_map(|r| r.from_ip)
+    }
+
+    /// Returns an iterator over all attachments
+    pub fn attachments(&self) -> impl Iterator<Item = &MessagePart<'_>> + Sync + Send {
+        self.msg.attachments()
     }
 
     /// Logs a message to stderr with the queue ID prefix.
