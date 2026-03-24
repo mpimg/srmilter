@@ -1,4 +1,4 @@
-use mail_parser::{HeaderName, MessageParser};
+use mail_parser::{HeaderName, MessageParser, MessagePart};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
@@ -207,6 +207,39 @@ impl MailInfo<'_> {
             ("".to_string(), "".to_string(), "".to_string())
         }
     }
+
+    /// Returns the MTA macros
+    pub fn get_macros(&self) -> &HashMap<String, String> {
+        &self.storage.macros
+    }
+
+    fn remove_enclosing_brackets(s: &str) -> &str {
+        if s.starts_with('[') && s.ends_with(']') {
+            &s[1..s.len() - 1]
+        } else {
+            s
+        }
+    }
+
+    /// Returns the client name and address from the MTA "_" macro
+    pub fn get_client_name_and_address(&self) -> (&str, &str) {
+        match self.storage.macros.get("_") {
+            Some(s) => {
+                // "github.molgen.mpg.de [141.14.220.169]"
+                // "unknown [141.80.232.51]"
+                let mut split = s.split(" ");
+                match split.next() {
+                    Some(name) => match split.next() {
+                        Some(ip) => (name, Self::remove_enclosing_brackets(ip)),
+                        None => (name, ""),
+                    },
+                    None => ("", ""),
+                }
+            }
+            None => ("", ""),
+        }
+    }
+
     /// Returns an iterator over all `Received:` headers in the message.
     pub fn get_received_header_iter(&self) -> impl Iterator<Item = &mail_parser::Received<'_>> {
         self.msg.headers().iter().filter_map(|h| {
@@ -218,6 +251,7 @@ impl MailInfo<'_> {
             }
         })
     }
+
     /// Returns an iterator over `Received:` headers starting from the first trusted one.
     ///
     /// Skips headers until finding one where the `by` field ends with `good_domain`.
@@ -257,10 +291,16 @@ impl MailInfo<'_> {
                 }
             })
     }
+
     /// Returns an iterator over IP addresses from trusted `Received:` headers only.
     pub fn foreign_ip_iter(&self, good_domain: &str) -> impl Iterator<Item = IpAddr> {
         self.get_trusted_received_header_iter(good_domain)
             .filter_map(|r| r.from_ip)
+    }
+
+    /// Returns an iterator over all attachments
+    pub fn attachments(&self) -> impl Iterator<Item = &MessagePart<'_>> + Sync + Send {
+        self.msg.attachments()
     }
 
     /// Logs a message to stderr with the queue ID prefix.
@@ -423,6 +463,7 @@ impl ConfigBuilder {
     /// If your classifier is a pure function that only reads from immutable context data
     /// loaded at startup, fork mode is safe and can provide good isolation between
     /// connections.
+    #[deprecated(since = "6.0.0", note = "use threaded mode")]
     pub fn enable_fork_mode(mut self) -> Self {
         self.fork_mode_enabled = true;
         self
@@ -529,22 +570,7 @@ impl ConfigBuilder {
     }
 }
 
-/// Reads lines from a file, stripping comments and whitespace.
-///
-/// Lines are trimmed of leading/trailing whitespace. Content after `#` on each line
-/// is treated as a comment and ignored. Empty lines are skipped.
-///
-/// # Example
-///
-/// ```ignore
-/// // File contents:
-/// // # This is a comment
-/// // spammer@evil.com
-/// // blocked@example.com  # inline comment
-///
-/// let blocklist = read_array("/etc/srmilter/blocklist.txt")?;
-/// // blocklist = ["spammer@evil.com", "blocked@example.com"]
-/// ```
+#[deprecated(since = "6.0.0", note = "trivial function should be hand-rolled")]
 pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let file = File::open(filename).map_err(|e| format!("{filename}: {e}"))?;
     let reader = BufReader::new(file);
@@ -560,7 +586,7 @@ pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(out)
 }
 
-/// Checks if an exact match for `needle` exists in `haystack`.
+#[deprecated(since = "6.0.0", note = "trivial function should be hand-rolled")]
 pub fn array_contains(haystack: &[String], needle: &str) -> bool {
     haystack.iter().any(|s| s == needle)
 }

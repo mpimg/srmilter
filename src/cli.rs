@@ -24,6 +24,7 @@ fn cmd_test(
 }
 
 fn cmd_dump(dump_args: &DumpArgs) -> Result<(), Box<dyn Error>> {
+    eprintln!("WARNING: dump command is deprecated!");
     let (dump_header, dump_body) = match (dump_args.header, dump_args.body) {
         (false, false) => (true, true),
         (dump_header, dump_body) => (dump_header, dump_body),
@@ -94,7 +95,12 @@ struct DumpArgs {
 pub(crate) struct DaemonArgs {
     #[arg(default_value = "0.0.0.0:7044")]
     pub address: String,
-    #[arg(long = "fork", default_value_t = 0, hide_default_value = true)]
+    #[arg(
+        long = "fork",
+        default_value_t = 0,
+        hide_default_value = true,
+        help = "(Deprecated!)"
+    )]
     pub fork_max: u16,
     #[arg(long = "threads", default_value_t = 0, hide_default_value = true)]
     pub threads_max: u16,
@@ -110,6 +116,7 @@ enum Command {
         recipients: Option<Vec<String>>,
     },
     Daemon(DaemonArgs),
+    #[command(about = "(Deprecated!)")]
     Dump(DumpArgs),
 }
 
@@ -117,7 +124,7 @@ enum Command {
 ///
 /// Parses command-line arguments and runs the appropriate subcommand:
 ///
-/// - `daemon [address] [--fork N] [--threads N] [--truncate N]` - Run the milter server
+/// - `daemon [address] [--threads N] [--truncate N]` - Run the milter server
 ///   (default address: `0.0.0.0:7044`)
 /// - `test <file> [sender] [recipients...]` - Test the classifier against an `.eml` file
 /// - `dump <file> [-H] [-b] [--html]` - Dump parsed email headers and/or body
@@ -147,6 +154,9 @@ pub fn cli(config: &Config) -> Result<(), Box<dyn Error>> {
             recipients.unwrap_or_default(),
         ),
         Command::Daemon(args) => {
+            if args.fork_max > 0 {
+                eprintln!("WARNING: fork mode is deprecated!");
+            }
             if args.fork_max > 0 && args.threads_max > 0 {
                 return Err("--fork and --threads are mutually exclusive".into());
             }

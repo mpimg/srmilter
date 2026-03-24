@@ -10,10 +10,10 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 
 - Milter protocol implementation for Postfix integration
 - Email parsing via `mail-parser` crate
-- Multiple concurrency modes: single-threaded, forked processes, or threaded
+- Multithreading
 - Spamhaus ZEN DNSBL lookup utilities
 - systemd socket activation support (optional)
-- Built-in CLI with test and dump commands
+- Built-in CLI
 
 ## Usage
 
@@ -33,30 +33,29 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 ### Example
 
 ```rust
-use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo, read_array, array_contains};
+use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo};
 
-struct MyContext {
-    blocklist: Vec<String>,
+struct Ctx {
+    // whatever
 }
 
 fn main() -> impl std::process::Termination {
-    let ctx = MyContext {
-        blocklist: read_array("/etc/srmilter/blocklist.txt").unwrap_or_default(),
-    };
-    let classifier = EmailClassifier::builder(ctx).classify_fn(classify).build();
-    let config = Config::builder()
-        .email_classifier(classifier)
-        .enable_fork_mode()
-        .build();
+    let ctx = Ctx {};
+    let classifier =
+EmailClassifier::builder(ctx).classify_fn(classify).build();
+    let config = Config::builder().email_classifier(classifier).build();
     srmilter::cli::cli(&config)
 }
 
-fn classify(ctx: &MyContext, mail_info: &MailInfo) -> ClassifyResult {
-    if array_contains(&ctx.blocklist, mail_info.get_from_address()) {
-        return mail_info.reject("sender on blocklist");
+fn classify(_ctx: &Ctx, mail_info: &MailInfo) -> ClassifyResult {
+    let from_address = mail_info.get_from_address();
+
+    if from_address == "spammer@example.com" {
+        return mail_info.reject("banned from_address");
     }
     mail_info.accept("default")
 }
+
 ```
 
 ## CLI Commands
@@ -65,19 +64,15 @@ The built-in CLI provides three subcommands:
 
 ```bash
 # Run the milter daemon (default: 0.0.0.0:7044)
-myfilter daemon [address] [--fork N] [--threads N] [--truncate N]
+myfilter daemon [address] [--threads N] [--truncate N]
 
 # Test classifier against an .eml file
 myfilter test <file.eml> [sender] [recipients...]
-
-# Dump parsed email headers and body
-myfilter dump <file.eml> [-H] [-b] [--html]
 ```
 
 ### Concurrency Options
 
 - **Default**: Single-threaded, sequential processing
-- `--fork N`: Fork up to N child processes (requires `enable_fork_mode()`)
 - `--threads N`: Use up to N threads
 
 ## systemd Deployment with Zero-Downtime Reloads
