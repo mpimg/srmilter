@@ -322,6 +322,13 @@ impl MailInfo<'_> {
         ClassifyResult::Quarantine
     }
 
+    /// Logs a discard message and returns [`ClassifyResult::Discard`].
+    #[must_use]
+    pub fn discard(&self, msg: &str) -> ClassifyResult {
+        self.log(&format!("{} ({})", ClassifyResult::Discard.uc(), msg));
+        ClassifyResult::Discard
+    }
+
     /// Logs `log_msg` to stderr and returns [`ClassifyResult::RejectWithMsg`]. `client_msg` is sent
     /// to the client with the fixed extended status code "550 5.7.1". It needs to be a valid SMTP
     /// error text (printable ASCII). '%' characters are allowed and don't have special meaning,
@@ -372,6 +379,8 @@ pub enum ClassifyResult {
     RejectWithMsg(Cow<'static, [u8]>),
     /// Accept but hold the email in Postfix quarantine.
     Quarantine,
+    /// Discard
+    Discard,
 }
 
 impl ClassifyResult {
@@ -382,6 +391,7 @@ impl ClassifyResult {
             ClassifyResult::Reject => "REJECT",
             ClassifyResult::RejectWithMsg(_) => "REJECT_WITH_MSG",
             ClassifyResult::Quarantine => "QUARANTINE",
+            ClassifyResult::Discard => "DISCARD",
         }
     }
 }

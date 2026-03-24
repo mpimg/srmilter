@@ -275,6 +275,18 @@ fn process_client(
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
                     }
+                    ClassifyResult::Discard => {
+                        writer.rewind()?;
+                        writer.write_all(b"d")?; // SMFIR_DISCARD
+                        stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                        stream_writer
+                            .write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                        writer.rewind()?;
+                        writer.write_all(b"a")?; // SMFIR_ACCEPT
+                        stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                        stream_writer
+                            .write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                    }
                 };
                 stream_writer.flush()?;
                 storage = MailInfoStorage::default();
