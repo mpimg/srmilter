@@ -16,7 +16,6 @@ systemd = ["dep:systemd"]
 
 [dependencies]
 clap = { version = "4.5.40", features = ["derive"] }
-fast_html2md = "0.0.58"
 mail-parser = "0.11.0"
 nix = { version = "0.31.2", features = ["signal"] }
 socket2 = { version = "0.6.0", features = ["all"] }

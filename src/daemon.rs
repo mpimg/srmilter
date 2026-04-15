@@ -5,7 +5,7 @@ use crate::{ClassifyResult, Config, MailInfoStorage, classify_mail};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
-use nix::unistd::{ForkResult, Pid, fork, pause};
+use nix::unistd::Pid;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -16,7 +16,6 @@ use std::io::{BufRead, BufReader, BufWriter, Cursor, Read as _, Seek as _, Write
 use std::net::{SocketAddr, TcpStream};
 #[cfg(feature = "systemd")]
 use std::os::fd::FromRawFd as _;
-use std::process::exit;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -368,10 +367,6 @@ fn get_listen_socket(args: &DaemonArgs) -> Result<Socket, Box<dyn Error>> {
 pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
     let listen_socket = get_listen_socket(args)?;
 
-    if args.fork_max > 0 && args.threads_max > 0 {
-        return Err("Cannot use both fork and thread modes simultaneously".into());
-    }
-
     let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if args.threads_max > 0 {
         Some(Arc::new((Mutex::new(0), Condvar::new())))
     } else {
@@ -380,11 +375,7 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
 
     install_signal_handler();
     loop {
-        if args.fork_max > 0 {
-            while CHILDREN_CNT.load(Ordering::Relaxed) >= args.fork_max {
-                pause()
-            }
-        } else if let Some(ref state) = thread_state {
+        if let Some(ref state) = thread_state {
             let (lock, cvar) = state.as_ref();
             let mut count = lock.lock().unwrap();
             while *count >= args.threads_max {
@@ -393,27 +384,7 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
         }
         match listen_socket.accept() {
             Ok((socket, _addr)) => {
-                if args.fork_max > 0 {
-                    match unsafe { fork() } {
-                        Ok(ForkResult::Parent { .. }) => {
-                            CHILDREN_CNT.fetch_add(1, Ordering::Relaxed);
-                        }
-                        Ok(ForkResult::Child) => {
-                            drop(listen_socket);
-                            let stream: TcpStream = socket.into();
-                            let reader = BufReader::new(&stream);
-                            let writer = BufWriter::new(&stream);
-                            match process_client(config, reader, writer, args.truncate) {
-                                Ok(_) => exit(0),
-                                Err(e) => {
-                                    eprintln!("{e}");
-                                    exit(1)
-                                }
-                            }
-                        }
-                        Err(e) => eprintln!("fork: {e}"),
-                    }
-                } else if args.threads_max > 0 {
+                if args.threads_max > 0 {
                     let state_clone = thread_state.as_ref().unwrap().clone();
 
                     // Increment thread count
