@@ -60,7 +60,7 @@ fn classify(_ctx: &Ctx, mail_info: &MailInfo) -> ClassifyResult {
 
 ## CLI Commands
 
-The built-in CLI provides three subcommands:
+The built-in CLI provides two subcommands:
 
 ```bash
 # Run the milter daemon (default: 0.0.0.0:7044)
