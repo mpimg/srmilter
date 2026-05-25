@@ -141,4 +141,4 @@ smtpd_milters = inet:127.0.0.1:7044
 Copyright © 2025 Donald Buczek <buczek@molgen.mpg.de>
 
 Licensed under the European Union Public Licence (EUPL), Version 1.2.
-See the [LICENSE](LICENSE) file for details.
+See the [LICENSE](https://github.com/mpimg/srmilter/blob/main/LICENSE) file for details.
