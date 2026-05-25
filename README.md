@@ -73,7 +73,7 @@ myfilter test <file.eml> [sender] [recipients...]
 ### Concurrency Options
 
 - **Default**: Up to 64 threads
-- `--threads N`: Use up to N threads (0 = single-threaded)
+- `--threads N`: Use up to N threads
 
 ## systemd Deployment with Zero-Downtime Reloads
 

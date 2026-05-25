@@ -46,7 +46,7 @@ struct DumpArgs {
 pub(crate) struct DaemonArgs {
     #[arg(default_value = "0.0.0.0:7044")]
     pub address: String,
-    #[arg(long = "threads", default_value_t = 64)]
+    #[arg(long = "threads", default_value_t = 64, value_parser = clap::value_parser!(u16).range(1..))]
     pub threads_max: u16,
     #[arg(long = "truncate", default_value_t = usize::MAX, hide_default_value = true, value_name = "BYTES")]
     pub truncate: usize,

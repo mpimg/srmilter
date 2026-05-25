@@ -367,16 +367,12 @@ fn get_listen_socket(args: &DaemonArgs) -> Result<Socket, Box<dyn Error>> {
 pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
     let listen_socket = get_listen_socket(args)?;
 
-    let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if args.threads_max > 0 {
-        Some(Arc::new((Mutex::new(0), Condvar::new())))
-    } else {
-        None
-    };
+    let thread_state = Arc::new((Mutex::new(0u16), Condvar::new()));
 
     install_signal_handler();
     loop {
-        if let Some(ref state) = thread_state {
-            let (lock, cvar) = state.as_ref();
+        {
+            let (lock, cvar) = thread_state.as_ref();
             let mut count = lock.lock().unwrap();
             while *count >= args.threads_max {
                 count = cvar.wait(count).unwrap();
@@ -384,39 +380,30 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
         }
         match listen_socket.accept() {
             Ok((socket, _addr)) => {
-                if args.threads_max > 0 {
-                    let state_clone = thread_state.as_ref().unwrap().clone();
+                let state_clone = thread_state.clone();
 
-                    // Increment thread count
-                    {
-                        let (lock, _) = state_clone.as_ref();
-                        let mut count = lock.lock().unwrap();
-                        *count += 1;
-                    }
+                // Increment thread count
+                {
+                    let (lock, _) = state_clone.as_ref();
+                    let mut count = lock.lock().unwrap();
+                    *count += 1;
+                }
 
-                    let stream: TcpStream = socket.into();
-                    let thread_config = config.clone();
-                    let truncate = args.truncate;
-                    thread::spawn(move || {
-                        let reader = BufReader::new(&stream);
-                        let writer = BufWriter::new(&stream);
-                        if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
-                            eprintln!("thread error: {e}");
-                        }
-                        // Decrement count and signal
-                        let (lock, cvar) = &*state_clone;
-                        let mut count = lock.lock().unwrap();
-                        *count -= 1;
-                        cvar.notify_one();
-                    });
-                } else {
-                    let stream: TcpStream = socket.into();
+                let stream: TcpStream = socket.into();
+                let thread_config = config.clone();
+                let truncate = args.truncate;
+                thread::spawn(move || {
                     let reader = BufReader::new(&stream);
                     let writer = BufWriter::new(&stream);
-                    if let Err(e) = process_client(config, reader, writer, args.truncate) {
-                        eprintln!("{e}");
+                    if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
+                        eprintln!("thread error: {e}");
                     }
-                }
+                    // Decrement count and signal
+                    let (lock, cvar) = &*state_clone;
+                    let mut count = lock.lock().unwrap();
+                    *count -= 1;
+                    cvar.notify_one();
+                });
             }
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => (),
             // todo: retry on ENETDOWN, EPROTO, ENOPROTOOPT... see accept(2)
@@ -428,8 +415,8 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
     }
 
     // Wait for active threads to complete
-    if let Some(ref state) = thread_state {
-        let (lock, cvar) = state.as_ref();
+    {
+        let (lock, cvar) = thread_state.as_ref();
         let mut count = lock.lock().unwrap();
         while *count > 0 {
             let result = cvar.wait_timeout(count, Duration::from_secs(1)).unwrap();
