@@ -4,7 +4,7 @@ A Rust library for building mail filter (milter) daemons that integrate with Pos
 
 ## Overview
 
-srmilter implements the milter protocol to receive emails from Postfix, parse them, and return classification decisions (accept, reject, or quarantine). It provides a simple API for writing custom email classifiers.
+srmilter implements the milter protocol to receive emails from Postfix, parse them, and return classification decisions (accept, reject, reject with custom message, quarantine, or discard). It provides a simple API for writing custom email classifiers.
 
 ## Features
 
