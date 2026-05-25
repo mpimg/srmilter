@@ -12,7 +12,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 - Email parsing via `mail-parser` crate
 - Multithreading
 - Spamhaus ZEN DNSBL lookup utilities
-- systemd socket activation support (optional)
+- systemd socket activation support
 - Built-in CLI
 
 ## Usage

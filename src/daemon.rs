@@ -14,7 +14,6 @@ use std::env::VarError;
 use std::error::Error;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read as _, Seek as _, Write};
 use std::net::{SocketAddr, TcpStream};
-#[cfg(feature = "systemd")]
 use std::os::fd::FromRawFd as _;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
@@ -344,10 +343,8 @@ fn get_listen_fd() -> Result<Option<c_int>, Box<dyn Error>> {
         Err(e) => return Err(e.into()),
         Ok(string) => return Ok(Some(string.parse()?)),
     }
-    #[cfg(feature = "systemd")]
-    match systemd::daemon::listen_fds(false).unwrap().iter().next() {
-        None => (),
-        Some(fd) => return Ok(Some(fd)),
+    if env::var_os("LISTEN_FDS").is_some() {
+        return Ok(Some(3));
     }
     Ok(None)
 }
