@@ -5,7 +5,7 @@ use crate::{ClassifyResult, Config, MailInfoStorage, classify_mail};
 use nix::libc::c_int;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
-use nix::unistd::{ForkResult, Pid, fork, pause};
+use nix::unistd::Pid;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -14,9 +14,7 @@ use std::env::VarError;
 use std::error::Error;
 use std::io::{BufRead, BufReader, BufWriter, Cursor, Read as _, Seek as _, Write};
 use std::net::{SocketAddr, TcpStream};
-#[cfg(feature = "systemd")]
 use std::os::fd::FromRawFd as _;
-use std::process::exit;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -275,6 +273,18 @@ fn process_client(
                         stream_writer
                             .write_all(&writer.get_ref()[0..writer.position() as usize])?;
                     }
+                    ClassifyResult::Discard => {
+                        writer.rewind()?;
+                        writer.write_all(b"d")?; // SMFIR_DISCARD
+                        stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                        stream_writer
+                            .write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                        writer.rewind()?;
+                        writer.write_all(b"a")?; // SMFIR_ACCEPT
+                        stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                        stream_writer
+                            .write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                    }
                 };
                 stream_writer.flush()?;
                 storage = MailInfoStorage::default();
@@ -333,10 +343,8 @@ fn get_listen_fd() -> Result<Option<c_int>, Box<dyn Error>> {
         Err(e) => return Err(e.into()),
         Ok(string) => return Ok(Some(string.parse()?)),
     }
-    #[cfg(feature = "systemd")]
-    match systemd::daemon::listen_fds(false).unwrap().iter().next() {
-        None => (),
-        Some(fd) => return Ok(Some(fd)),
+    if env::var_os("LISTEN_FDS").is_some() {
+        return Ok(Some(3));
     }
     Ok(None)
 }
@@ -356,24 +364,12 @@ fn get_listen_socket(args: &DaemonArgs) -> Result<Socket, Box<dyn Error>> {
 pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
     let listen_socket = get_listen_socket(args)?;
 
-    if args.fork_max > 0 && args.threads_max > 0 {
-        return Err("Cannot use both fork and thread modes simultaneously".into());
-    }
-
-    let thread_state: Option<Arc<(Mutex<u16>, Condvar)>> = if args.threads_max > 0 {
-        Some(Arc::new((Mutex::new(0), Condvar::new())))
-    } else {
-        None
-    };
+    let thread_state = Arc::new((Mutex::new(0u16), Condvar::new()));
 
     install_signal_handler();
     loop {
-        if args.fork_max > 0 {
-            while CHILDREN_CNT.load(Ordering::Relaxed) >= args.fork_max {
-                pause()
-            }
-        } else if let Some(ref state) = thread_state {
-            let (lock, cvar) = state.as_ref();
+        {
+            let (lock, cvar) = thread_state.as_ref();
             let mut count = lock.lock().unwrap();
             while *count >= args.threads_max {
                 count = cvar.wait(count).unwrap();
@@ -381,59 +377,30 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
         }
         match listen_socket.accept() {
             Ok((socket, _addr)) => {
-                if args.fork_max > 0 {
-                    match unsafe { fork() } {
-                        Ok(ForkResult::Parent { .. }) => {
-                            CHILDREN_CNT.fetch_add(1, Ordering::Relaxed);
-                        }
-                        Ok(ForkResult::Child) => {
-                            drop(listen_socket);
-                            let stream: TcpStream = socket.into();
-                            let reader = BufReader::new(&stream);
-                            let writer = BufWriter::new(&stream);
-                            match process_client(config, reader, writer, args.truncate) {
-                                Ok(_) => exit(0),
-                                Err(e) => {
-                                    eprintln!("{e}");
-                                    exit(1)
-                                }
-                            }
-                        }
-                        Err(e) => eprintln!("fork: {e}"),
-                    }
-                } else if args.threads_max > 0 {
-                    let state_clone = thread_state.as_ref().unwrap().clone();
+                let state_clone = thread_state.clone();
 
-                    // Increment thread count
-                    {
-                        let (lock, _) = state_clone.as_ref();
-                        let mut count = lock.lock().unwrap();
-                        *count += 1;
-                    }
+                // Increment thread count
+                {
+                    let (lock, _) = state_clone.as_ref();
+                    let mut count = lock.lock().unwrap();
+                    *count += 1;
+                }
 
-                    let stream: TcpStream = socket.into();
-                    let thread_config = config.clone();
-                    let truncate = args.truncate;
-                    thread::spawn(move || {
-                        let reader = BufReader::new(&stream);
-                        let writer = BufWriter::new(&stream);
-                        if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
-                            eprintln!("thread error: {e}");
-                        }
-                        // Decrement count and signal
-                        let (lock, cvar) = &*state_clone;
-                        let mut count = lock.lock().unwrap();
-                        *count -= 1;
-                        cvar.notify_one();
-                    });
-                } else {
-                    let stream: TcpStream = socket.into();
+                let stream: TcpStream = socket.into();
+                let thread_config = config.clone();
+                let truncate = args.truncate;
+                thread::spawn(move || {
                     let reader = BufReader::new(&stream);
                     let writer = BufWriter::new(&stream);
-                    if let Err(e) = process_client(config, reader, writer, args.truncate) {
-                        eprintln!("{e}");
+                    if let Err(e) = process_client(&thread_config, reader, writer, truncate) {
+                        eprintln!("thread error: {e}");
                     }
-                }
+                    // Decrement count and signal
+                    let (lock, cvar) = &*state_clone;
+                    let mut count = lock.lock().unwrap();
+                    *count -= 1;
+                    cvar.notify_one();
+                });
             }
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => (),
             // todo: retry on ENETDOWN, EPROTO, ENOPROTOOPT... see accept(2)
@@ -445,8 +412,8 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
     }
 
     // Wait for active threads to complete
-    if let Some(ref state) = thread_state {
-        let (lock, cvar) = state.as_ref();
+    {
+        let (lock, cvar) = thread_state.as_ref();
         let mut count = lock.lock().unwrap();
         while *count > 0 {
             let result = cvar.wait_timeout(count, Duration::from_secs(1)).unwrap();

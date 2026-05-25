@@ -4,7 +4,7 @@ A Rust library for building mail filter (milter) daemons that integrate with Pos
 
 ## Overview
 
-srmilter implements the milter protocol to receive emails from Postfix, parse them, and return classification decisions (accept, reject, or quarantine). It provides a simple API for writing custom email classifiers.
+srmilter implements the milter protocol to receive emails from Postfix, parse them, and return classification decisions (accept, reject, reject with custom message, quarantine, or discard). It provides a simple API for writing custom email classifiers.
 
 ## Features
 
@@ -12,7 +12,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 - Email parsing via `mail-parser` crate
 - Multithreading
 - Spamhaus ZEN DNSBL lookup utilities
-- systemd socket activation support (optional)
+- systemd socket activation support
 - Built-in CLI
 
 ## Usage
@@ -32,7 +32,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 
 ### Example
 
-```rust
+```rust,no_run
 use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo};
 
 struct Ctx {
@@ -60,7 +60,7 @@ fn classify(_ctx: &Ctx, mail_info: &MailInfo) -> ClassifyResult {
 
 ## CLI Commands
 
-The built-in CLI provides three subcommands:
+The built-in CLI provides two subcommands:
 
 ```bash
 # Run the milter daemon (default: 0.0.0.0:7044)
@@ -72,7 +72,7 @@ myfilter test <file.eml> [sender] [recipients...]
 
 ### Concurrency Options
 
-- **Default**: Single-threaded, sequential processing
+- **Default**: Up to 64 threads
 - `--threads N`: Use up to N threads
 
 ## systemd Deployment with Zero-Downtime Reloads
@@ -132,7 +132,7 @@ systemctl reload mymilter
 
 Add to your Postfix `main.cf`:
 
-```
+```text
 smtpd_milters = inet:127.0.0.1:7044
 ```
 
@@ -141,4 +141,4 @@ smtpd_milters = inet:127.0.0.1:7044
 Copyright © 2025 Donald Buczek <buczek@molgen.mpg.de>
 
 Licensed under the European Union Public Licence (EUPL), Version 1.2.
-See the [LICENSE](LICENSE) file for details.
+See the [LICENSE](https://github.com/mpimg/srmilter/blob/main/LICENSE) file for details.

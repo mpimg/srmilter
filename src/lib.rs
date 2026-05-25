@@ -1,9 +1,8 @@
+#![doc = include_str!("../README.md")]
+
 use mail_parser::{HeaderName, MessageParser, MessagePart};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::error::Error;
-use std::fs::File;
-use std::io::{BufRead as _, BufReader};
 use std::net::IpAddr;
 use std::sync::Arc;
 
@@ -322,6 +321,13 @@ impl MailInfo<'_> {
         ClassifyResult::Quarantine
     }
 
+    /// Logs a discard message and returns [`ClassifyResult::Discard`].
+    #[must_use]
+    pub fn discard(&self, msg: &str) -> ClassifyResult {
+        self.log(&format!("{} ({})", ClassifyResult::Discard.uc(), msg));
+        ClassifyResult::Discard
+    }
+
     /// Logs `log_msg` to stderr and returns [`ClassifyResult::RejectWithMsg`]. `client_msg` is sent
     /// to the client with the fixed extended status code "550 5.7.1". It needs to be a valid SMTP
     /// error text (printable ASCII). '%' characters are allowed and don't have special meaning,
@@ -372,6 +378,8 @@ pub enum ClassifyResult {
     RejectWithMsg(Cow<'static, [u8]>),
     /// Accept but hold the email in Postfix quarantine.
     Quarantine,
+    /// Discard
+    Discard,
 }
 
 impl ClassifyResult {
@@ -382,6 +390,7 @@ impl ClassifyResult {
             ClassifyResult::Reject => "REJECT",
             ClassifyResult::RejectWithMsg(_) => "REJECT_WITH_MSG",
             ClassifyResult::Quarantine => "QUARANTINE",
+            ClassifyResult::Discard => "DISCARD",
         }
     }
 }
@@ -392,7 +401,6 @@ impl ClassifyResult {
 #[derive(Clone)]
 pub struct Config {
     full_mail_classifier: Option<Arc<dyn ClassifyEmail + Send + Sync>>,
-    fork_mode_enabled: bool,
 }
 
 impl Config {
@@ -415,7 +423,6 @@ impl Config {
 #[derive(Default)]
 pub struct ConfigBuilder {
     full_mail_classifier: Option<Arc<dyn ClassifyEmail + Send + Sync>>,
-    fork_mode_enabled: bool,
 }
 
 impl ConfigBuilder {
@@ -426,53 +433,10 @@ impl ConfigBuilder {
         self.full_mail_classifier = Some(classifier);
         self
     }
-    /// Enables fork mode support, allowing the `--fork` command-line option.
-    ///
-    /// Fork mode spawns child processes to handle milter connections. This can be
-    /// efficient but has important safety considerations that require explicit opt-in.
-    ///
-    /// # Safety Requirements
-    ///
-    /// Before enabling fork mode, ensure your application does **not** do any of the following
-    /// before calling [`cli::cli()`]:
-    ///
-    /// - **Use threads**: If the parent process has threads running, locks held by those
-    ///   threads will not be released in the forked children. This can cause deadlocks
-    ///   since the threads themselves are not copied—only the main thread continues in the
-    ///   child.
-    ///
-    /// - **Hold open connections**: Database connections, network sockets, or other stateful
-    ///   connections get inherited by child processes. When children exit, their drop
-    ///   implementations may send protocol shutdown messages or flush buffers, causing
-    ///   duplicate or corrupted communication with the remote endpoint.
-    ///
-    /// - **Use buffered I/O with autoflush**: Open files with buffered writers that flush
-    ///   on close can cause duplicate writes when both parent and children flush the same
-    ///   inherited buffer.
-    ///
-    /// Additionally, be aware that:
-    ///
-    /// - **Copy-on-write semantics apply**: Mutable data shared between classifier invocations
-    ///   will not actually be shared across forked children. Each child gets its own copy,
-    ///   so accumulated state (counters, caches) will not be visible to other children or
-    ///   the parent.
-    ///
-    /// - **Signal handlers are inherited**: Any custom signal handlers set before forking
-    ///   will be active in child processes, which may cause unexpected behavior.
-    ///
-    /// If your classifier is a pure function that only reads from immutable context data
-    /// loaded at startup, fork mode is safe and can provide good isolation between
-    /// connections.
-    #[deprecated(since = "6.0.0", note = "use threaded mode")]
-    pub fn enable_fork_mode(mut self) -> Self {
-        self.fork_mode_enabled = true;
-        self
-    }
     /// Builds the final [`Config`].
     pub fn build(self) -> Config {
         Config {
             full_mail_classifier: self.full_mail_classifier,
-            fork_mode_enabled: self.fork_mode_enabled,
         }
     }
 }
@@ -568,27 +532,6 @@ impl ConfigBuilder {
         self.full_mail_classifier = Some(Arc::new(classifier));
         self
     }
-}
-
-#[deprecated(since = "6.0.0", note = "trivial function should be hand-rolled")]
-pub fn read_array(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
-    let file = File::open(filename).map_err(|e| format!("{filename}: {e}"))?;
-    let reader = BufReader::new(file);
-    let mut out: Vec<String> = Vec::with_capacity(20);
-    for line in reader.lines() {
-        if let Some(s) = line?.split('#').next() {
-            let s = s.trim();
-            if !s.is_empty() {
-                out.push(s.into());
-            }
-        }
-    }
-    Ok(out)
-}
-
-#[deprecated(since = "6.0.0", note = "trivial function should be hand-rolled")]
-pub fn array_contains(haystack: &[String], needle: &str) -> bool {
-    haystack.iter().any(|s| s == needle)
 }
 
 #[cfg(test)]
