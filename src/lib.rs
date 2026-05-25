@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use mail_parser::{HeaderName, MessageParser, MessagePart};
 use std::borrow::Cow;
 use std::collections::HashMap;

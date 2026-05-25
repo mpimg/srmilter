@@ -32,7 +32,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 
 ### Example
 
-```rust
+```rust,no_run
 use srmilter::{ClassifyResult, Config, EmailClassifier, MailInfo};
 
 struct Ctx {
@@ -132,7 +132,7 @@ systemctl reload mymilter
 
 Add to your Postfix `main.cf`:
 
-```
+```text
 smtpd_milters = inet:127.0.0.1:7044
 ```
 
