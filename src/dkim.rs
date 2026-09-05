@@ -82,6 +82,13 @@ impl DkimSigner {
         self
     }
 
+    /// Whether `name` is one of the configured header field names to sign
+    /// (case-insensitive). Used by the daemon to avoid capturing header
+    /// data that DKIM signing will never look at.
+    pub(crate) fn wants_header(&self, name: &str) -> bool {
+        self.headers.iter().any(|h| h.eq_ignore_ascii_case(name))
+    }
+
     /// Computes the `DKIM-Signature` header value (everything after
     /// `DKIM-Signature:`) for a message.
     ///
@@ -298,6 +305,22 @@ mod tests {
     // RFC 6376 3.4.4: SHA-256 of the empty string, published directly in
     // the RFC text as the hash of a relaxed-canonicalized empty body.
     const EMPTY_BODY_SHA256_B64: &str = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
+
+    #[test]
+    fn wants_header_matches_configured_names_case_insensitively() {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let signer = DkimSigner {
+            domain: "example.com".to_string(),
+            selector: "sel1".to_string(),
+            private_key,
+            headers: vec!["From".to_string(), "Subject".to_string()],
+        };
+        assert!(signer.wants_header("From"));
+        assert!(signer.wants_header("subject"));
+        assert!(signer.wants_header("SUBJECT"));
+        assert!(!signer.wants_header("To"));
+    }
 
     #[test]
     fn header_lowercases_name_and_removes_space_after_colon() {

@@ -22,10 +22,10 @@ struct MailInfoStorage {
     macros: HashMap<String, String>,
     id: String, // postfix queue ident
     mail_buffer: Vec<u8>,
-    // Raw header (name, value) pairs, captured verbatim and in order from
-    // the milter 'L' command, used only for DKIM signing. Never re-derived
-    // by parsing `mail_buffer`, which avoids any ambiguity from embedded
-    // header folding.
+    // Raw (name, value) pairs for headers DKIM signing actually uses,
+    // captured verbatim and in order from the milter 'L' command (never
+    // re-derived by parsing `mail_buffer`, which avoids any ambiguity from
+    // embedded header folding). Empty when no DkimSigner is configured.
     header_pairs: Vec<(String, String)>,
     // Byte offset into `mail_buffer` where the body starts, i.e. right
     // after the blank-line separator. Used only for DKIM signing.
@@ -484,6 +484,16 @@ pub(crate) fn dkim_configured(config: &Config) -> bool {
     config.dkim_signer.is_some()
 }
 
+/// Whether `name` is a header field DKIM signing will actually use, so the
+/// daemon can avoid capturing headers signing will never look at (and does
+/// no work at all when no signer is configured).
+pub(crate) fn dkim_wants_header(config: &Config, name: &str) -> bool {
+    config
+        .dkim_signer
+        .as_ref()
+        .is_some_and(|s| s.wants_header(name))
+}
+
 /// Computes the `DKIM-Signature` header value for a message, if a
 /// [`DkimSigner`] is configured. Signing failures are logged (queue-ID
 /// prefixed) and never propagated: a signing bug must never cause mail
@@ -606,6 +616,17 @@ mod tests {
 
         let normal = dkim_sign(&config, &storage, false).unwrap();
         assert!(!String::from_utf8(normal).unwrap().contains("l=0"));
+    }
+
+    #[test]
+    fn dkim_wants_header_respects_configured_list_and_absence() {
+        let config_none = Config::builder().build();
+        assert!(!dkim_wants_header(&config_none, "From"));
+
+        let config = Config::builder().dkim_signer(test_dkim_signer()).build();
+        assert!(dkim_wants_header(&config, "From"));
+        assert!(dkim_wants_header(&config, "subject"));
+        assert!(!dkim_wants_header(&config, "X-Unwanted"));
     }
 
     #[test]

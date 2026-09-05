@@ -198,10 +198,15 @@ fn process_client(
                 let value = data_reader.read_zbytes(&mut string_buffer)?.to_vec();
                 storage.mail_buffer.extend_from_slice(&value);
                 storage.mail_buffer.extend_from_slice(b"\r\n");
-                storage.header_pairs.push((
-                    String::from_utf8_lossy(&name).into_owned(),
-                    String::from_utf8_lossy(&value).into_owned(),
-                ));
+                // Only capture headers DKIM signing will actually use (and
+                // do nothing at all when no signer is configured).
+                let name_str = String::from_utf8_lossy(&name);
+                if crate::dkim_wants_header(config, &name_str) {
+                    storage.header_pairs.push((
+                        name_str.into_owned(),
+                        String::from_utf8_lossy(&value).into_owned(),
+                    ));
+                }
                 // reply disabled with SMFIP_NR_HDR
             }
             'N' => {
