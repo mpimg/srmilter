@@ -12,6 +12,7 @@ srmilter implements the milter protocol to receive emails from Postfix, parse th
 - Email parsing via `mail-parser` crate
 - Multithreading
 - Spamhaus ZEN DNSBL lookup utilities
+- DKIM signing (RFC 6376) of outgoing mail
 - systemd socket activation support
 - Built-in CLI
 
@@ -57,6 +58,40 @@ fn classify(_ctx: &Ctx, mail_info: &MailInfo) -> ClassifyResult {
 }
 
 ```
+
+## DKIM Signing
+
+srmilter can sign outgoing mail with a `DKIM-Signature` header (RFC 6376,
+RSA-SHA256, relaxed/relaxed canonicalization) using a single statically
+configured domain, selector, and private key:
+
+```rust,no_run
+use srmilter::{ClassifyResult, Config, DkimSigner, EmailClassifier, MailInfo};
+
+fn main() -> impl std::process::Termination {
+    let pem = std::fs::read_to_string("/etc/srmilter/dkim.pem").unwrap();
+    let signer = DkimSigner::from_pkcs8_pem(&pem, "example.com", "selector1").unwrap();
+
+    let classifier = EmailClassifier::builder(()).classify_fn(classify).build();
+    let config = Config::builder()
+        .email_classifier(classifier)
+        .dkim_signer(signer)
+        .build();
+    srmilter::cli::cli(&config)
+}
+
+fn classify(_ctx: &(), mail_info: &MailInfo) -> ClassifyResult {
+    mail_info.accept("default")
+}
+```
+
+Signing happens only when the classifier's verdict is `Accept` or
+`Quarantine`, and is best-effort: a signing failure is logged and the mail
+is still delivered unsigned rather than blocked. DKIM signing requires
+either the full message body (the default) or no body at all
+(`--truncate 0`, which produces a `l=0` signature covering no body bytes);
+any other `--truncate` value combined with a configured `DkimSigner` is
+rejected at daemon startup.
 
 ## CLI Commands
 
