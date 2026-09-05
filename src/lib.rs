@@ -8,9 +8,12 @@ use std::sync::Arc;
 
 pub mod cli;
 mod daemon;
+mod dkim;
 mod milter;
 mod reader_extention;
 pub mod spamhaus_zen;
+
+pub use dkim::{DkimError, DkimSigner};
 
 #[derive(Default)]
 struct MailInfoStorage {
@@ -19,6 +22,14 @@ struct MailInfoStorage {
     macros: HashMap<String, String>,
     id: String, // postfix queue ident
     mail_buffer: Vec<u8>,
+    // Raw header (name, value) pairs, captured verbatim and in order from
+    // the milter 'L' command, used only for DKIM signing. Never re-derived
+    // by parsing `mail_buffer`, which avoids any ambiguity from embedded
+    // header folding.
+    header_pairs: Vec<(String, String)>,
+    // Byte offset into `mail_buffer` where the body starts, i.e. right
+    // after the blank-line separator. Used only for DKIM signing.
+    header_end: usize,
 }
 
 /// Provides read-only access to a parsed email message.
@@ -401,6 +412,7 @@ impl ClassifyResult {
 #[derive(Clone)]
 pub struct Config {
     full_mail_classifier: Option<Arc<dyn ClassifyEmail + Send + Sync>>,
+    dkim_signer: Option<Arc<DkimSigner>>,
 }
 
 impl Config {
@@ -423,6 +435,7 @@ impl Config {
 #[derive(Default)]
 pub struct ConfigBuilder {
     full_mail_classifier: Option<Arc<dyn ClassifyEmail + Send + Sync>>,
+    dkim_signer: Option<Arc<DkimSigner>>,
 }
 
 impl ConfigBuilder {
@@ -433,10 +446,16 @@ impl ConfigBuilder {
         self.full_mail_classifier = Some(classifier);
         self
     }
+    /// Configures DKIM signing of outgoing mail. See [`DkimSigner`].
+    pub fn dkim_signer(mut self, signer: DkimSigner) -> Self {
+        self.dkim_signer = Some(Arc::new(signer));
+        self
+    }
     /// Builds the final [`Config`].
     pub fn build(self) -> Config {
         Config {
             full_mail_classifier: self.full_mail_classifier,
+            dkim_signer: self.dkim_signer,
         }
     }
 }
@@ -458,6 +477,30 @@ fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
     } else {
         eprintln!("{}: ACCEPT (no classifier configured)", storage.id);
         ClassifyResult::Accept
+    }
+}
+
+pub(crate) fn dkim_configured(config: &Config) -> bool {
+    config.dkim_signer.is_some()
+}
+
+/// Computes the `DKIM-Signature` header value for a message, if a
+/// [`DkimSigner`] is configured. Signing failures are logged (queue-ID
+/// prefixed) and never propagated: a signing bug must never cause mail
+/// loss or bounces, so the mail is still delivered, just unsigned.
+pub(crate) fn dkim_sign(
+    config: &Config,
+    storage: &MailInfoStorage,
+    force_l0: bool,
+) -> Option<Vec<u8>> {
+    let signer = config.dkim_signer.as_ref()?;
+    let body = &storage.mail_buffer[storage.header_end..];
+    match signer.sign(&storage.header_pairs, body, force_l0) {
+        Ok(value) => Some(value.into_bytes()),
+        Err(e) => {
+            eprintln!("{}: DKIM signing failed: {e}", storage.id);
+            None
+        }
     }
 }
 

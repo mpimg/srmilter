@@ -118,7 +118,11 @@ fn process_client(
                 writer.rewind()?;
                 writer.write_all(b"O")?;
                 writer.write_all(&SMFIF_VERSION.to_be_bytes())?;
-                writer.write_all(&SMFIF_QUARANTINE.to_be_bytes())?;
+                let mut actions = SMFIF_QUARANTINE;
+                if crate::dkim_configured(config) {
+                    actions |= SMFIF_ADDHDRS;
+                }
+                writer.write_all(&actions.to_be_bytes())?;
                 let mut protocol = SMFIP_NOCONNECT
                     | SMFIP_NOHELO
                     | SMFIP_NR_HDR
@@ -168,18 +172,21 @@ fn process_client(
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
-                storage
-                    .mail_buffer
-                    .extend_from_slice(data_reader.read_zbytes(&mut string_buffer)?);
+                let name = data_reader.read_zbytes(&mut string_buffer)?.to_vec();
+                storage.mail_buffer.extend_from_slice(&name);
                 storage.mail_buffer.extend_from_slice(b": ");
-                storage
-                    .mail_buffer
-                    .extend_from_slice(data_reader.read_zbytes(&mut string_buffer)?);
+                let value = data_reader.read_zbytes(&mut string_buffer)?.to_vec();
+                storage.mail_buffer.extend_from_slice(&value);
                 storage.mail_buffer.extend_from_slice(b"\r\n");
+                storage.header_pairs.push((
+                    String::from_utf8_lossy(&name).into_owned(),
+                    String::from_utf8_lossy(&value).into_owned(),
+                ));
                 // reply disabled with SMFIP_NR_HDR
             }
             'N' => {
                 storage.mail_buffer.extend_from_slice(b"\r\n");
+                storage.header_end = storage.mail_buffer.len();
                 // reply disabled with SMFIP_NR_EOH
             }
             'B' => {
@@ -225,6 +232,17 @@ fn process_client(
                     .unwrap_or("-")
                     .to_string();
                 let result = classify_mail(config, &storage);
+                if matches!(result, ClassifyResult::Accept | ClassifyResult::Quarantine)
+                    && let Some(header_value) = crate::dkim_sign(config, &storage, truncate == 0)
+                {
+                    writer.rewind()?;
+                    writer.write_all(b"h")?; // SMFIR_ADDHEADER
+                    writer.write_all(b"DKIM-Signature\0")?;
+                    writer.write_all(&header_value)?;
+                    writer.write_all(b"\0")?;
+                    stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                    stream_writer.write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                }
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -362,6 +380,13 @@ fn get_listen_socket(args: &DaemonArgs) -> Result<Socket, Box<dyn Error>> {
 }
 
 pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
+    if crate::dkim_configured(config) && args.truncate != 0 && args.truncate != usize::MAX {
+        return Err("DKIM signing requires either the full message body \
+                     (default --truncate) or no body at all (--truncate 0); \
+                     partial truncation is not supported"
+            .into());
+    }
+
     let listen_socket = get_listen_socket(args)?;
 
     let thread_state = Arc::new((Mutex::new(0u16), Condvar::new()));
