@@ -43,6 +43,26 @@ fn dup_percent(s: Cow<[u8]>) -> Cow<[u8]> {
 }
 
 #[test]
+fn test_daemon_rejects_partial_truncate_with_dkim_signer() {
+    use crate::cli::DaemonArgs;
+    use rsa::RsaPrivateKey;
+    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
+
+    let mut rng = rand::thread_rng();
+    let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+    let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
+    let signer = crate::DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap();
+    let config = Config::builder().dkim_signer(signer).build();
+
+    let args = DaemonArgs {
+        address: "127.0.0.1:0".to_string(),
+        threads_max: 1,
+        truncate: 100, // finite, nonzero: unsupported with a DkimSigner
+    };
+    assert!(daemon(&config, &args).is_err());
+}
+
+#[test]
 fn test_dup_percent() {
     assert_eq!(*dup_percent(b"".into()), *b"");
     assert_eq!(*dup_percent(b"xxx".into()), *b"xxx");

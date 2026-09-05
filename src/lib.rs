@@ -580,6 +580,41 @@ impl ConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rsa::RsaPrivateKey;
+    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
+
+    fn test_dkim_signer() -> DkimSigner {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
+        DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap()
+    }
+
+    #[test]
+    fn dkim_sign_declares_l0_only_when_forced() {
+        let config = Config::builder().dkim_signer(test_dkim_signer()).build();
+        let storage = MailInfoStorage {
+            id: "test".to_string(),
+            mail_buffer: b"From: a@example.com\r\n\r\nbody\r\n".to_vec(),
+            header_pairs: vec![("From".to_string(), "a@example.com".to_string())],
+            header_end: 22,
+            ..Default::default()
+        };
+
+        let forced = dkim_sign(&config, &storage, true).unwrap();
+        assert!(String::from_utf8(forced).unwrap().contains("l=0;"));
+
+        let normal = dkim_sign(&config, &storage, false).unwrap();
+        assert!(!String::from_utf8(normal).unwrap().contains("l=0"));
+    }
+
+    #[test]
+    fn dkim_not_configured_signs_nothing() {
+        let config = Config::builder().build();
+        let storage = MailInfoStorage::default();
+        assert!(!dkim_configured(&config));
+        assert!(dkim_sign(&config, &storage, false).is_none());
+    }
 
     #[test]
     fn parse_001() {
