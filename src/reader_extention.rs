@@ -63,7 +63,7 @@ fn anglestrip(s: &[u8]) -> &[u8] {
 
 #[test]
 fn test_read_char() {
-    let input = [b'a', b'b'];
+    let input = *b"ab";
     let mut reader = &input[..];
     assert_eq!(reader.read_char().unwrap(), 'a');
     assert_eq!(reader.read_char().unwrap(), 'b');
