@@ -183,8 +183,50 @@ impl DkimSigner {
             .map_err(DkimError::Signing)?;
         value.push_str(&BASE64.encode(signature));
 
-        Ok(value)
+        Ok(fold_tag_list(&value))
     }
+}
+
+/// Target column width used to fold the signature value into RFC 5322
+/// continuation lines. This is the conventional "SHOULD" soft limit
+/// (RFC 5322 §2.1.1), not the 998-octet hard limit.
+const FOLD_WIDTH: usize = 78;
+
+/// Folds a completed `DKIM-Signature` tag list into RFC 5322 continuation
+/// lines (CRLF followed by a TAB), packing whole tags onto each line up to
+/// [`FOLD_WIDTH`] columns.
+///
+/// Folding is only ever inserted right after a `"; "` tag separator. RFC
+/// 6376 §3.2's `tag-spec` grammar allows FWS both before the following
+/// `tag-name` and after the previous `tag-value`, so a fold there is
+/// exactly the whitespace the value already permits, and relaxed header
+/// canonicalization (which every verifier applies) unfolds and collapses
+/// it straight back to the original text, leaving the signature valid. No
+/// individual tag value is ever split, so a single tag that is by itself
+/// wider than `FOLD_WIDTH` -- an unusually large `b=` for a very large RSA
+/// key, for example -- is left on its own unfolded line rather than risk
+/// folding somewhere the grammar may not allow it.
+fn fold_tag_list(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + value.len() / 8);
+    let mut line_len = 0;
+    let mut rest = value;
+    loop {
+        let (chunk, remainder) = match rest.find("; ") {
+            Some(pos) => rest.split_at(pos + 2),
+            None => (rest, ""),
+        };
+        if line_len > 0 && line_len + chunk.len() > FOLD_WIDTH {
+            out.push_str("\r\n\t");
+            line_len = 0;
+        }
+        out.push_str(chunk);
+        line_len += chunk.len();
+        if remainder.is_empty() {
+            break;
+        }
+        rest = remainder;
+    }
+    out
 }
 
 /// RFC 6376 §3.4.2 relaxed header canonicalization of one header field.
@@ -339,6 +381,41 @@ mod tests {
     }
 
     #[test]
+    fn fold_tag_list_packs_tags_up_to_width_without_splitting_one() {
+        let value = "v=1; a=rsa-sha256; c=relaxed/relaxed; d=example.com; \
+                      s=selector1; t=1234567890; h=from:subject:date; \
+                      bh=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=; \
+                      b=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        let folded = fold_tag_list(value);
+
+        assert!(
+            folded.contains("\r\n\t"),
+            "long value was not folded at all"
+        );
+        // Every physical line is within budget, except a single tag (like
+        // the long `b=` here) that is by itself wider than FOLD_WIDTH.
+        for line in folded.split("\r\n\t") {
+            assert!(
+                line.len() <= FOLD_WIDTH || !line.contains("; "),
+                "line exceeds width but still contains multiple tags: {line:?}"
+            );
+        }
+        // Relaxed unfolding+collapsing (what every verifier applies to the
+        // header on the wire) reproduces the pre-fold canonical text: no
+        // fold landed in the middle of a tag.
+        assert_eq!(
+            collapse_wsp(unfold(&folded).as_bytes()),
+            collapse_wsp(value.as_bytes())
+        );
+    }
+
+    #[test]
+    fn fold_tag_list_leaves_short_value_on_one_line() {
+        let value = "v=1; a=rsa-sha256; d=x.com; b=AAAA";
+        assert_eq!(fold_tag_list(value), value);
+    }
+
+    #[test]
     fn header_lowercases_name_and_removes_space_after_colon() {
         // RFC 6376 3.4.5 Example: "A: X" canonicalizes to "a:X".
         assert_eq!(canonicalize_header_relaxed("A", " X"), "a:X");
@@ -422,6 +499,9 @@ mod tests {
         assert!(value.starts_with("v=1; a=rsa-sha256; c=relaxed/relaxed;"));
         assert!(value.contains("h=from:subject;"));
         assert!(!value.contains("l=0"));
+        // A real 2048-bit signature makes the value long enough to fold;
+        // the signature must still verify against the folded text below.
+        assert!(value.contains("\r\n\t"));
 
         let b_pos = value.rfind("b=").unwrap();
 
