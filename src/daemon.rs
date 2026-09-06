@@ -118,7 +118,11 @@ fn process_client(
                 writer.rewind()?;
                 writer.write_all(b"O")?;
                 writer.write_all(&SMFIF_VERSION.to_be_bytes())?;
-                writer.write_all(&SMFIF_QUARANTINE.to_be_bytes())?;
+                let mut actions = SMFIF_QUARANTINE;
+                if config.dkim_signer.is_some() {
+                    actions |= SMFIF_ADDHDRS;
+                }
+                writer.write_all(&actions.to_be_bytes())?;
                 let mut protocol = SMFIP_NOCONNECT
                     | SMFIP_NOHELO
                     | SMFIP_NR_HDR
@@ -168,18 +172,26 @@ fn process_client(
                 // reply disabled with SMFIP_NR_RCPT
             }
             'L' => {
-                storage
-                    .mail_buffer
-                    .extend_from_slice(data_reader.read_zbytes(&mut string_buffer)?);
+                let name = data_reader.read_zbytes(&mut string_buffer)?.to_vec();
+                storage.mail_buffer.extend_from_slice(&name);
                 storage.mail_buffer.extend_from_slice(b": ");
-                storage
-                    .mail_buffer
-                    .extend_from_slice(data_reader.read_zbytes(&mut string_buffer)?);
+                let value = data_reader.read_zbytes(&mut string_buffer)?.to_vec();
+                storage.mail_buffer.extend_from_slice(&value);
                 storage.mail_buffer.extend_from_slice(b"\r\n");
+                // Only capture headers DKIM signing will actually use (and
+                // do nothing at all when no signer is configured).
+                let name_str = String::from_utf8_lossy(&name);
+                if config.dkim_wants_header(&name_str) {
+                    storage.dkim_header_pairs.push((
+                        name_str.into_owned(),
+                        String::from_utf8_lossy(&value).into_owned(),
+                    ));
+                }
                 // reply disabled with SMFIP_NR_HDR
             }
             'N' => {
                 storage.mail_buffer.extend_from_slice(b"\r\n");
+                storage.header_end = storage.mail_buffer.len();
                 // reply disabled with SMFIP_NR_EOH
             }
             'B' => {
@@ -225,6 +237,17 @@ fn process_client(
                     .unwrap_or("-")
                     .to_string();
                 let result = classify_mail(config, &storage);
+                if matches!(result, ClassifyResult::Accept | ClassifyResult::Quarantine)
+                    && let Some(header_value) = crate::dkim_sign(config, &storage, truncate == 0)
+                {
+                    writer.rewind()?;
+                    writer.write_all(b"h")?; // SMFIR_ADDHEADER
+                    writer.write_all(b"DKIM-Signature\0")?;
+                    writer.write_all(&header_value)?;
+                    writer.write_all(b"\0")?;
+                    stream_writer.write_all(&((writer.position() as u32).to_be_bytes()))?;
+                    stream_writer.write_all(&writer.get_ref()[0..writer.position() as usize])?;
+                }
                 match result {
                     ClassifyResult::Accept => {
                         writer.rewind()?;
@@ -362,6 +385,13 @@ fn get_listen_socket(args: &DaemonArgs) -> Result<Socket, Box<dyn Error>> {
 }
 
 pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
+    if config.dkim_signer.is_some() && args.truncate != 0 && args.truncate != usize::MAX {
+        return Err("DKIM signing requires either the full message body \
+                     (default --truncate) or no body at all (--truncate 0); \
+                     partial truncation is not supported"
+            .into());
+    }
+
     let listen_socket = get_listen_socket(args)?;
 
     let thread_state = Arc::new((Mutex::new(0u16), Condvar::new()));
@@ -422,4 +452,74 @@ pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> 
     }
 
     Ok(())
+}
+
+#[test]
+fn test_process_client_emits_addheader_pdu_for_dkim() {
+    use rsa::RsaPrivateKey;
+    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
+
+    fn pdu(payload: &[u8]) -> Vec<u8> {
+        let mut out = (payload.len() as u32).to_be_bytes().to_vec();
+        out.extend_from_slice(payload);
+        out
+    }
+
+    let mut rng = rand::thread_rng();
+    let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+    let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
+    let signer = crate::DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap();
+    let config = Config::builder().dkim_signer(signer).build();
+
+    let mut input = Vec::new();
+    input.extend(pdu(b"O"));
+    input.extend(pdu(b"DMi\0testqueueid\0"));
+    input.extend(pdu(b"Msender@example.com\0"));
+    input.extend(pdu(b"Rrecipient@example.com\0"));
+    input.extend(pdu(b"LFrom\0sender@example.com\0"));
+    input.extend(pdu(b"N"));
+    input.extend(pdu(b"E"));
+    input.extend(pdu(b"Q"));
+
+    let mut output = Vec::new();
+    process_client(&config, Cursor::new(input), &mut output, usize::MAX).unwrap();
+
+    // Walk the response PDUs looking for the SMFIR_ADDHEADER ('h') one.
+    let mut addheader_payload = None;
+    let mut rest = &output[..];
+    while rest.len() >= 4 {
+        let len = u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]) as usize;
+        let payload = &rest[4..4 + len];
+        if payload.first() == Some(&b'h') {
+            addheader_payload = Some(payload[1..].to_vec());
+        }
+        rest = &rest[4 + len..];
+    }
+
+    let payload = addheader_payload.expect("no SMFIR_ADDHEADER PDU found in daemon response");
+    assert!(payload.starts_with(b"DKIM-Signature\0"));
+    assert!(payload.ends_with(b"\0"));
+    let value = &payload[b"DKIM-Signature\0".len()..payload.len() - 1];
+    let value = std::str::from_utf8(value).unwrap();
+    assert!(value.starts_with("v=1; a=rsa-sha256; c=relaxed/relaxed;"));
+}
+
+#[test]
+fn test_daemon_rejects_partial_truncate_with_dkim_signer() {
+    use crate::cli::DaemonArgs;
+    use rsa::RsaPrivateKey;
+    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
+
+    let mut rng = rand::thread_rng();
+    let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+    let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
+    let signer = crate::DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap();
+    let config = Config::builder().dkim_signer(signer).build();
+
+    let args = DaemonArgs {
+        address: "127.0.0.1:0".to_string(),
+        threads_max: 1,
+        truncate: 100, // finite, nonzero: unsupported with a DkimSigner
+    };
+    assert!(daemon(&config, &args).is_err());
 }
