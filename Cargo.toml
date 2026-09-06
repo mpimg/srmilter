@@ -11,9 +11,13 @@ categories = ["email", "network-programming"]
 license = "EUPL-1.2"
 
 [dependencies]
+base64 = "0.22"
 clap = { version = "4.5.40", features = ["derive"] }
 mail-parser = "0.11.0"
 nix = { version = "0.31.2", features = ["signal"] }
+rand = "0.8"
+rsa = "0.9"
+sha2 = { version = "0.10", features = ["oid"] }
 socket2 = { version = "0.6.0", features = ["all"] }
 
 [dev-dependencies]
