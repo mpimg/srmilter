@@ -253,10 +253,7 @@ fn canonicalize_header_relaxed(name: &str, value: &str) -> String {
 ///
 /// A message's header values are arbitrary octets. MUAs still emit raw
 /// Latin-1 (and other 8-bit) bytes in `Subject:` and in display names rather
-/// than RFC 2047 encoded words. Passing those through
-/// `String::from_utf8_lossy` substitutes U+FFFD for every offending byte, so
-/// the signer would hash something the verifier never sees and the signature
-/// would fail on exactly those messages. Hash the octets as received.
+/// than RFC 2047 encoded words
 fn canonicalize_header_bytes(name: &str, value: &[u8]) -> Vec<u8> {
     let name = trim_wsp_str(name).to_ascii_lowercase();
     let unfolded = unfold_bytes(value);
@@ -272,20 +269,7 @@ fn canonicalize_header_bytes(name: &str, value: &[u8]) -> Vec<u8> {
 /// RFC 5322 unfolding: a line terminator immediately followed by WSP is
 /// removed, keeping the WSP itself (later collapsed by [`collapse_wsp`]).
 ///
-/// The terminator is not necessarily CRLF. Postfix hands folded header values
-/// to a milter with the line breaks as bare LF -- `milter8_header()` notes
-/// "Sendmail 8 sends multi-line headers as text separated by newline" and
-/// passes the queue-file value through untouched, whereas `milter8_body()`
-/// appends a real CRLF per line. Accepting LF and CR as well as CRLF keeps
-/// this correct whichever convention the MTA uses; the verifier always sees
-/// the CRLF-folded form Postfix puts on the wire, so both must canonicalize
-/// to the same octets.
-#[cfg(test)]
-fn unfold(value: &str) -> String {
-    String::from_utf8_lossy(&unfold_bytes(value.as_bytes())).into_owned()
-}
-
-/// Byte-exact [`unfold`].
+/// Accept "\r\n", "\r" or "\n" as line terminator. Postfix milter protocol uses "\n".
 fn unfold_bytes(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -400,6 +384,10 @@ fn append_canonical_line(out: &mut Vec<u8>, line: &[u8]) {
 mod tests {
     use super::*;
     use rsa::RsaPublicKey;
+
+    fn unfold(value: &str) -> String {
+        String::from_utf8_lossy(&unfold_bytes(value.as_bytes())).into_owned()
+    }
 
     // RFC 6376 3.4.4: SHA-256 of the empty string, published directly in
     // the RFC text as the hash of a relaxed-canonicalized empty body.
