@@ -254,19 +254,29 @@ fn canonicalize_header_relaxed(name: &str, value: &str) -> String {
     out
 }
 
-/// RFC 5322 unfolding: a CRLF immediately followed by WSP is removed,
-/// keeping the WSP itself (later collapsed by [`collapse_wsp`]).
+/// RFC 5322 unfolding: a line terminator immediately followed by WSP is
+/// removed, keeping the WSP itself (later collapsed by [`collapse_wsp`]).
+///
+/// The terminator is not necessarily CRLF. Postfix hands folded header values
+/// to a milter with the line breaks as a bare LF: `milter8_header()` notes
+/// "Sendmail 8 sends multi-line headers as text separated by newline" and
+/// passes the queue-file value straight through, whereas `milter8_body()`
+/// appends a real CRLF per line. Accepting LF and CR as well as CRLF keeps
+/// this correct whichever convention the MTA uses -- and it has to be, since
+/// the verifier canonicalizes the CRLF-folded form Postfix puts on the wire,
+/// so both sides must arrive at the same octets.
 fn unfold(value: &str) -> String {
     let bytes = value.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'\r'
-            && i + 2 < bytes.len()
-            && bytes[i + 1] == b'\n'
-            && (bytes[i + 2] == b' ' || bytes[i + 2] == b'\t')
-        {
-            i += 2;
+        let terminator = match bytes[i] {
+            b'\r' if bytes.get(i + 1) == Some(&b'\n') => 2,
+            b'\r' | b'\n' => 1,
+            _ => 0,
+        };
+        if terminator > 0 && matches!(bytes.get(i + terminator), Some(b' ' | b'\t')) {
+            i += terminator;
         } else {
             out.push(bytes[i]);
             i += 1;
@@ -457,6 +467,21 @@ mod tests {
     fn unfold_removes_only_the_crlf_before_wsp() {
         assert_eq!(unfold("Y\t\r\n\tZ"), "Y\t\tZ");
         assert_eq!(unfold("no fold here"), "no fold here");
+    }
+
+    #[test]
+    fn header_folded_with_bare_lf_canonicalizes_like_crlf() {
+        // The form Postfix actually delivers: milter8_header() passes the
+        // queue-file value through, whose continuation lines are separated by
+        // a bare LF. The verifier sees the CRLF-folded wire form, so the two
+        // must canonicalize alike or every message with a folded signed
+        // header fails to verify.
+        assert_eq!(
+            canonicalize_header_relaxed("Subject", "Y\t\n\tZ  "),
+            canonicalize_header_relaxed("Subject", "Y\t\r\n\tZ  ")
+        );
+        assert_eq!(canonicalize_header_relaxed("B ", "Y\t\n\tZ  "), "b:Y Z");
+        assert_eq!(unfold("Y\t\n\tZ"), "Y\t\tZ");
     }
 
     #[test]
