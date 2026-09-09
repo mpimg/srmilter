@@ -182,10 +182,7 @@ fn process_client(
                 // do nothing at all when no signer is configured).
                 let name_str = String::from_utf8_lossy(&name);
                 if config.dkim_wants_header(&name_str) {
-                    storage.dkim_header_pairs.push((
-                        name_str.into_owned(),
-                        String::from_utf8_lossy(&value).into_owned(),
-                    ));
+                    storage.dkim_header_pairs.push((name_str.into_owned(), value));
                 }
                 // reply disabled with SMFIP_NR_HDR
             }
