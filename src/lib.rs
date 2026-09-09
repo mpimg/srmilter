@@ -26,7 +26,7 @@ struct MailInfoStorage {
     // captured verbatim and in order from the milter 'L' command (never
     // re-derived by parsing `mail_buffer`, which avoids any ambiguity from
     // embedded header folding). Empty when no DkimSigner is configured.
-    dkim_header_pairs: Vec<(String, String)>,
+    dkim_header_pairs: Vec<(String, Vec<u8>)>,
     // Byte offset into `mail_buffer` where the body starts, i.e. right
     // after the blank-line separator. Used only for DKIM signing.
     header_end: usize,
@@ -601,7 +601,7 @@ mod tests {
         let storage = MailInfoStorage {
             id: "test".to_string(),
             mail_buffer: b"From: a@example.com\r\n\r\nbody\r\n".to_vec(),
-            dkim_header_pairs: vec![("From".to_string(), "a@example.com".to_string())],
+            dkim_header_pairs: vec![("From".to_string(), b"a@example.com".to_vec())],
             header_end: 22,
             ..Default::default()
         };

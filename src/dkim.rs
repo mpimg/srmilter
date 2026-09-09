@@ -116,7 +116,7 @@ impl DkimSigner {
     /// covering zero body bytes, and `body` is expected to be empty.
     pub(crate) fn sign(
         &self,
-        headers: &[(String, String)],
+        headers: &[(String, Vec<u8>)],
         body: &[u8],
         force_l0: bool,
     ) -> Result<String, DkimError> {
@@ -148,7 +148,7 @@ impl DkimSigner {
         // Group actual header occurrences by lowercased name, preserving
         // their original top-to-bottom order so RFC 6376 5.4.2's
         // bottom-first duplicate handling can pop from the end.
-        let mut remaining: HashMap<String, Vec<&(String, String)>> = HashMap::new();
+        let mut remaining: HashMap<String, Vec<&(String, Vec<u8>)>> = HashMap::new();
         for pair in headers {
             remaining
                 .entry(pair.0.to_ascii_lowercase())
@@ -161,9 +161,8 @@ impl DkimSigner {
             if let Some(list) = remaining.get_mut(name)
                 && let Some((actual_name, actual_value)) = list.pop()
             {
-                signed_data.extend_from_slice(
-                    canonicalize_header_relaxed(actual_name, actual_value).as_bytes(),
-                );
+                signed_data
+                    .extend_from_slice(&canonicalize_header_bytes(actual_name, actual_value));
                 signed_data.extend_from_slice(b"\r\n");
             }
             // Absent header: per RFC 6376 5.4, contributes the null string
@@ -242,37 +241,68 @@ fn fold_tag_list(value: &str) -> String {
 
 /// RFC 6376 §3.4.2 relaxed header canonicalization of one header field.
 /// Returns `"name:value"` (no trailing CRLF, no space after the colon).
+///
+/// For a header field taken from the message itself use
+/// [`canonicalize_header_bytes`]; this wrapper is for values we generate
+/// ourselves and therefore know to be valid UTF-8.
 fn canonicalize_header_relaxed(name: &str, value: &str) -> String {
+    String::from_utf8_lossy(&canonicalize_header_bytes(name, value.as_bytes())).into_owned()
+}
+
+/// As [`canonicalize_header_relaxed`], but byte-exact.
+///
+/// A message's header values are arbitrary octets. MUAs still emit raw
+/// Latin-1 (and other 8-bit) bytes in `Subject:` and in display names rather
+/// than RFC 2047 encoded words. Passing those through
+/// `String::from_utf8_lossy` substitutes U+FFFD for every offending byte, so
+/// the signer would hash something the verifier never sees and the signature
+/// would fail on exactly those messages. Hash the octets as received.
+fn canonicalize_header_bytes(name: &str, value: &[u8]) -> Vec<u8> {
     let name = trim_wsp_str(name).to_ascii_lowercase();
-    let unfolded = unfold(value);
-    let collapsed = collapse_wsp(unfolded.as_bytes());
+    let unfolded = unfold_bytes(value);
+    let collapsed = collapse_wsp(&unfolded);
     let trimmed = trim_wsp(&collapsed);
-    let mut out = String::with_capacity(name.len() + 1 + trimmed.len());
-    out.push_str(&name);
-    out.push(':');
-    out.push_str(&String::from_utf8_lossy(trimmed));
+    let mut out = Vec::with_capacity(name.len() + 1 + trimmed.len());
+    out.extend_from_slice(name.as_bytes());
+    out.push(b':');
+    out.extend_from_slice(trimmed);
     out
 }
 
-/// RFC 5322 unfolding: a CRLF immediately followed by WSP is removed,
-/// keeping the WSP itself (later collapsed by [`collapse_wsp`]).
+/// RFC 5322 unfolding: a line terminator immediately followed by WSP is
+/// removed, keeping the WSP itself (later collapsed by [`collapse_wsp`]).
+///
+/// The terminator is not necessarily CRLF. Postfix hands folded header values
+/// to a milter with the line breaks as bare LF -- `milter8_header()` notes
+/// "Sendmail 8 sends multi-line headers as text separated by newline" and
+/// passes the queue-file value through untouched, whereas `milter8_body()`
+/// appends a real CRLF per line. Accepting LF and CR as well as CRLF keeps
+/// this correct whichever convention the MTA uses; the verifier always sees
+/// the CRLF-folded form Postfix puts on the wire, so both must canonicalize
+/// to the same octets.
+#[cfg(test)]
 fn unfold(value: &str) -> String {
-    let bytes = value.as_bytes();
+    String::from_utf8_lossy(&unfold_bytes(value.as_bytes())).into_owned()
+}
+
+/// Byte-exact [`unfold`].
+fn unfold_bytes(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'\r'
-            && i + 2 < bytes.len()
-            && bytes[i + 1] == b'\n'
-            && (bytes[i + 2] == b' ' || bytes[i + 2] == b'\t')
-        {
-            i += 2;
+        let terminator = match bytes[i] {
+            b'\r' if bytes.get(i + 1) == Some(&b'\n') => 2,
+            b'\r' | b'\n' => 1,
+            _ => 0,
+        };
+        if terminator > 0 && matches!(bytes.get(i + terminator), Some(b' ' | b'\t')) {
+            i += terminator;
         } else {
             out.push(bytes[i]);
             i += 1;
         }
     }
-    String::from_utf8_lossy(&out).into_owned()
+    out
 }
 
 /// Converts every run of one or more WSP (space/tab) bytes to a single SP.
@@ -460,6 +490,31 @@ mod tests {
     }
 
     #[test]
+    fn header_folded_with_bare_lf_canonicalizes_like_crlf() {
+        // This is the form Postfix actually delivers: milter8_header() passes
+        // the queue-file value through, whose continuation lines are separated
+        // by a bare LF ("Sendmail 8 sends multi-line headers as text separated
+        // by newline"). The verifier sees the CRLF-folded wire form, so both
+        // must canonicalize to the same octets or the signature fails on every
+        // message with a folded signed header.
+        assert_eq!(
+            canonicalize_header_bytes("Subject", b"Y\t\n\tZ  "),
+            canonicalize_header_bytes("Subject", b"Y\t\r\n\tZ  ")
+        );
+        assert_eq!(canonicalize_header_bytes("B ", b"Y\t\n\tZ  "), b"b:Y Z");
+    }
+
+    #[test]
+    fn header_value_octets_are_hashed_verbatim() {
+        // Raw 8-bit bytes in a header value are not valid UTF-8 and must not
+        // be replaced by U+FFFD: the verifier hashes what is on the wire.
+        assert_eq!(
+            canonicalize_header_bytes("Subject", b"Verl\xe4gerung"),
+            b"subject:Verl\xe4gerung"
+        );
+    }
+
+    #[test]
     fn body_collapses_and_trims_per_rfc_example() {
         // RFC 6376 3.4.5 Example 1/2: body " C \r\nD \t E\r\n\r\n\r\n"
         // canonicalizes (relaxed) to " C\r\nD E\r\n".
@@ -506,8 +561,8 @@ mod tests {
             headers: vec!["from".to_string(), "subject".to_string()],
         };
         let headers = vec![
-            ("From".to_string(), "alice@example.com".to_string()),
-            ("Subject".to_string(), "Hello".to_string()),
+            ("From".to_string(), b"alice@example.com".to_vec()),
+            ("Subject".to_string(), b"Hello".to_vec()),
         ];
         let body: &[u8] = b"body text\r\n";
         let value = signer.sign(&headers, body, false).unwrap();
@@ -563,7 +618,7 @@ mod tests {
             private_key,
             headers: vec!["from".to_string()],
         };
-        let headers = vec![("From".to_string(), "alice@example.com".to_string())];
+        let headers = vec![("From".to_string(), b"alice@example.com".to_vec())];
         let value = signer.sign(&headers, b"", true).unwrap();
 
         assert!(value.contains("l=0;"));
@@ -583,7 +638,7 @@ mod tests {
             headers: vec!["from".to_string(), "comments".to_string()],
         };
         // No "Comments" header actually present.
-        let headers = vec![("From".to_string(), "alice@example.com".to_string())];
+        let headers = vec![("From".to_string(), b"alice@example.com".to_vec())];
         let value = signer.sign(&headers, b"", false).unwrap();
         assert!(value.contains("h=from:comments;"));
     }
@@ -602,9 +657,9 @@ mod tests {
         // RFC 6376 5.4.2's own example: three Received headers, sign two,
         // bottom-to-top order means <C> then <B>.
         let headers = vec![
-            ("Received".to_string(), "<A>".to_string()),
-            ("Received".to_string(), "<B>".to_string()),
-            ("Received".to_string(), "<C>".to_string()),
+            ("Received".to_string(), b"<A>".to_vec()),
+            ("Received".to_string(), b"<B>".to_vec()),
+            ("Received".to_string(), b"<C>".to_vec()),
         ];
         let value = signer.sign(&headers, b"", false).unwrap();
         let b_pos = value.rfind("b=").unwrap();
