@@ -180,7 +180,18 @@ impl DkimSigner {
                 &digest,
             )
             .map_err(DkimError::Signing)?;
-        value.push_str(&BASE64.encode(signature));
+
+        // Fold a long "b=" signature. Safe here since RFC 6376 3.7 treats
+        // "b=" as empty for the hash just computed, and 3.2 has verifiers
+        // strip FWS from tag values. The first line already has "b=" on it.
+        let signature_b64 = BASE64.encode(signature);
+        let first_len = signature_b64.len().min(FOLD_WIDTH - "b=".len());
+        let (first, rest) = signature_b64.as_bytes().split_at(first_len);
+        value.push_str(std::str::from_utf8(first).expect("base64 output is ASCII"));
+        for chunk in rest.chunks(FOLD_WIDTH) {
+            value.push_str("\n\t");
+            value.push_str(std::str::from_utf8(chunk).expect("base64 output is ASCII"));
+        }
 
         Ok(fold_tag_list(&value))
     }
@@ -212,10 +223,9 @@ const FOLD_WIDTH: usize = 78;
 /// canonicalization (which every verifier applies, against the CRLF-folded
 /// header Postfix actually puts on the wire) unfolds and collapses it
 /// straight back to the original text, leaving the signature valid. No
-/// individual tag value is ever split, so a single tag that is by itself
-/// wider than `FOLD_WIDTH` -- an unusually large `b=` for a very large RSA
-/// key, for example -- is left on its own unfolded line rather than risk
-/// folding somewhere the grammar may not allow it.
+/// tag value is ever split here, since that would corrupt the header hash
+/// for anything but `b=` -- which arrives already folded, from
+/// [`DkimSigner::sign`], so this function just treats it as one chunk.
 fn fold_tag_list(value: &str) -> String {
     let mut out = String::with_capacity(value.len() + value.len() / 8);
     let mut line_len = 0;
@@ -414,7 +424,7 @@ mod tests {
         let value = "v=1; a=rsa-sha256; c=relaxed/relaxed; d=example.com; \
                       s=selector1; t=1234567890; h=from:subject:date; \
                       bh=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=; \
-                      b=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+                      cc=short";
         let folded = fold_tag_list(value);
 
         assert!(folded.contains("\n\t"), "long value was not folded at all");
@@ -424,13 +434,8 @@ mod tests {
              when it later re-emits the header, and a literal CR here \
              survives as stray data ahead of that, producing a blank line"
         );
-        // Every physical line is within budget, except a single tag (like
-        // the long `b=` here) that is by itself wider than FOLD_WIDTH.
         for line in folded.split("\n\t") {
-            assert!(
-                line.len() <= FOLD_WIDTH || !line.contains("; "),
-                "line exceeds width but still contains multiple tags: {line:?}"
-            );
+            assert!(line.len() <= FOLD_WIDTH, "line exceeds width: {line:?}");
         }
         // Postfix re-emits each LF-separated piece with a real CRLF; relaxed
         // unfolding+collapsing of that wire form (what every verifier
@@ -562,6 +567,9 @@ mod tests {
         // the signature must still verify against the folded text below.
         assert!(value.contains("\n\t"));
         assert!(!value.contains('\r'), "fold marker must be bare LF");
+        for line in value.split("\n\t") {
+            assert!(line.len() <= FOLD_WIDTH, "line exceeds width: {line:?}");
+        }
 
         let b_pos = value.rfind("b=").unwrap();
 
@@ -590,7 +598,12 @@ mod tests {
         );
         let digest = Sha256::digest(&signed_data);
 
-        let signature = BASE64.decode(&value[b_pos + 2..]).unwrap();
+        // Verifiers strip fold whitespace from a tag's value (RFC 6376 3.2).
+        let b_value: String = value[b_pos + 2..]
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        let signature = BASE64.decode(&b_value).unwrap();
         public_key
             .verify(Pkcs1v15Sign::new::<Sha256>(), &digest, &signature)
             .unwrap();
@@ -667,7 +680,11 @@ mod tests {
                 .as_bytes(),
         );
         let digest = Sha256::digest(&signed_data);
-        let signature = BASE64.decode(&value[b_pos + 2..]).unwrap();
+        let b_value: String = value[b_pos + 2..]
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        let signature = BASE64.decode(&b_value).unwrap();
         public_key
             .verify(Pkcs1v15Sign::new::<Sha256>(), &digest, &signature)
             .unwrap();
