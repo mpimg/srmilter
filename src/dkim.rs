@@ -1,0 +1,692 @@
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use rsa::pkcs8::DecodePrivateKey;
+use rsa::{Pkcs1v15Sign, RsaPrivateKey};
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Default set of header field names to sign, in signing order.
+///
+/// `From` appears twice deliberately (RFC 6376 5.4 oversigning): the second
+/// entry finds no further instance, so it contributes the null string but is
+/// still listed in `h=`, which makes a relay that adds a second `From`
+/// header break the signature instead of riding on it.
+///
+/// `To` is intentionally absent. It is rewritten by mailing lists and
+/// forwarders, and signing it buys little: DMARC aligns on `From`, and the
+/// SMTP envelope is not covered by DKIM at all.
+const DEFAULT_SIGNED_HEADERS: &[&str] = &[
+    "From",
+    "From",
+    "Subject",
+    "Date",
+    "Message-ID",
+    "MIME-Version",
+    "Content-Type",
+    "Content-Transfer-Encoding",
+];
+
+/// Errors that can occur while configuring or using a [`DkimSigner`].
+#[derive(Debug)]
+pub enum DkimError {
+    /// The supplied PEM data could not be parsed as a PKCS#8 RSA private key.
+    InvalidKey(rsa::pkcs8::Error),
+    /// RSA signing failed.
+    Signing(rsa::Error),
+}
+
+impl fmt::Display for DkimError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DkimError::InvalidKey(e) => write!(f, "invalid DKIM private key: {e}"),
+            DkimError::Signing(e) => write!(f, "DKIM signing failed: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for DkimError {}
+
+/// Signs outgoing mail with a `DKIM-Signature` header (RFC 6376), using
+/// RSA-SHA256 and relaxed/relaxed canonicalization against a single,
+/// statically configured domain, selector, and private key.
+pub struct DkimSigner {
+    domain: String,
+    selector: String,
+    private_key: RsaPrivateKey,
+    // Header field names to sign, in order, always stored lowercased:
+    // DKIM matches names case-insensitively, so folding once here keeps
+    // every later comparison a plain equality. Emitted verbatim as the
+    // `h=` tag, which RFC 6376 lets us write in any case.
+    headers: Vec<String>,
+}
+
+impl DkimSigner {
+    /// Creates a signer from a PKCS#8 PEM-encoded RSA private key.
+    ///
+    /// The default signed-header list is `From, From, Subject, Date,
+    /// Message-ID, MIME-Version, Content-Type, Content-Transfer-Encoding`;
+    /// override it with [`headers`](Self::headers). `From` is listed twice
+    /// on purpose, so that a relay adding a second `From` header breaks the
+    /// signature (RFC 6376 5.4 oversigning). `To` is omitted because
+    /// mailing lists and forwarders rewrite it.
+    pub fn from_pkcs8_pem(
+        pem: &str,
+        domain: impl Into<String>,
+        selector: impl Into<String>,
+    ) -> Result<Self, DkimError> {
+        let private_key = RsaPrivateKey::from_pkcs8_pem(pem).map_err(DkimError::InvalidKey)?;
+        Ok(DkimSigner {
+            domain: domain.into(),
+            selector: selector.into(),
+            private_key,
+            headers: DEFAULT_SIGNED_HEADERS
+                .iter()
+                .map(|s| s.to_ascii_lowercase())
+                .collect(),
+        })
+    }
+
+    /// Overrides the default list of header field names to sign, in order.
+    ///
+    /// Per RFC 6376 §5.4, `From` should always be included. A name may be
+    /// repeated to sign multiple instances of a repeated header field
+    /// (§5.4.2), or to claim more instances than currently exist so the
+    /// signature breaks if more are added later (§5.4).
+    pub fn headers(mut self, names: &[&str]) -> Self {
+        self.headers = names.iter().map(|s| s.to_ascii_lowercase()).collect();
+        self
+    }
+
+    /// Whether `name` is one of the configured header field names to sign
+    /// (case-insensitive). Used by the daemon to avoid capturing header
+    /// data that DKIM signing will never look at.
+    pub(crate) fn wants_header(&self, name: &str) -> bool {
+        self.headers.iter().any(|h| h.eq_ignore_ascii_case(name))
+    }
+
+    /// Computes the `DKIM-Signature` header value (everything after
+    /// `DKIM-Signature:`) for a message.
+    ///
+    /// `headers` is the ordered list of raw `(name, value)` pairs as
+    /// delivered by the milter `'L'` command, verbatim. `force_l0` must be
+    /// set when `body` is known to be incomplete (the caller received no
+    /// body at all); in that case the signature declares `l=0`, honestly
+    /// covering zero body bytes, and `body` is expected to be empty.
+    pub(crate) fn sign(
+        &self,
+        headers: &[(String, Vec<u8>)],
+        body: &[u8],
+        force_l0: bool,
+    ) -> Result<String, DkimError> {
+        let body_hash = if force_l0 {
+            Sha256::digest([])
+        } else {
+            Sha256::digest(canonicalize_body_relaxed(body))
+        };
+        let bh = BASE64.encode(body_hash);
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let mut value = format!(
+            "v=1; a=rsa-sha256; c=relaxed/relaxed; d={}; s={}; t={}; h={}; bh={}; ",
+            self.domain,
+            self.selector,
+            timestamp,
+            self.headers.join(":"),
+            bh,
+        );
+        if force_l0 {
+            value.push_str("l=0; ");
+        }
+        value.push_str("b=");
+
+        // Group actual header occurrences by lowercased name, preserving
+        // their original top-to-bottom order so RFC 6376 5.4.2's
+        // bottom-first duplicate handling can pop from the end.
+        let mut remaining: HashMap<String, Vec<&(String, Vec<u8>)>> = HashMap::new();
+        for pair in headers {
+            remaining
+                .entry(pair.0.to_ascii_lowercase())
+                .or_default()
+                .push(pair);
+        }
+
+        let mut signed_data = Vec::new();
+        for name in &self.headers {
+            if let Some(list) = remaining.get_mut(name)
+                && let Some((actual_name, actual_value)) = list.pop()
+            {
+                signed_data
+                    .extend_from_slice(&canonicalize_header_bytes(actual_name, actual_value));
+                signed_data.extend_from_slice(b"\r\n");
+            }
+            // Absent header: per RFC 6376 5.4, contributes the null string
+            // (nothing at all) but is still listed in h= above.
+        }
+        signed_data
+            .extend_from_slice(canonicalize_header_relaxed("DKIM-Signature", &value).as_bytes());
+
+        let digest = Sha256::digest(&signed_data);
+        let signature = self
+            .private_key
+            .sign_with_rng(
+                &mut rand::thread_rng(),
+                Pkcs1v15Sign::new::<Sha256>(),
+                &digest,
+            )
+            .map_err(DkimError::Signing)?;
+
+        // Fold a long "b=" signature. Safe here since RFC 6376 3.7 treats
+        // "b=" as empty for the hash just computed, and 3.2 has verifiers
+        // strip FWS from tag values. The first line already has "b=" on it.
+        let signature_b64 = BASE64.encode(signature);
+        let first_len = signature_b64.len().min(FOLD_WIDTH - "b=".len());
+        let (first, rest) = signature_b64.as_bytes().split_at(first_len);
+        value.push_str(std::str::from_utf8(first).expect("base64 output is ASCII"));
+        for chunk in rest.chunks(FOLD_WIDTH) {
+            value.push_str("\n\t");
+            value.push_str(std::str::from_utf8(chunk).expect("base64 output is ASCII"));
+        }
+
+        Ok(fold_tag_list(&value))
+    }
+}
+
+/// Target column width used to fold the signature value into RFC 5322
+/// continuation lines. This is the conventional "SHOULD" soft limit
+/// (RFC 5322 §2.1.1), not the 998-octet hard limit.
+const FOLD_WIDTH: usize = 78;
+
+/// Folds a completed `DKIM-Signature` tag list into continuation lines
+/// (bare LF followed by a TAB), packing whole tags onto each line up to
+/// [`FOLD_WIDTH`] columns.
+///
+/// This value is handed to Postfix via the milter `SMFIR_ADDHEADER`
+/// command, not written to the wire directly. Postfix's `cleanup_out_header()`
+/// splits milter-supplied header values on a bare `'\n'` and writes each
+/// piece as its own queue-file record, adding a leading TAB itself if a
+/// continuation line doesn't already start with whitespace; it supplies the
+/// CR of the eventual CRLF when the message is later transmitted. A literal
+/// `\r` embedded here would therefore survive as stray data ahead of
+/// Postfix's own line break, producing a spurious blank line -- so the fold
+/// marker must be plain `"\n\t"`, never `"\r\n\t"`.
+///
+/// Folding is only ever inserted right after a `"; "` tag separator. RFC
+/// 6376 §3.2's `tag-spec` grammar allows FWS both before the following
+/// `tag-name` and after the previous `tag-value`, so a fold there is
+/// exactly the whitespace the value already permits, and relaxed header
+/// canonicalization (which every verifier applies, against the CRLF-folded
+/// header Postfix actually puts on the wire) unfolds and collapses it
+/// straight back to the original text, leaving the signature valid. No
+/// tag value is ever split here, since that would corrupt the header hash
+/// for anything but `b=` -- which arrives already folded, from
+/// [`DkimSigner::sign`], so this function just treats it as one chunk.
+fn fold_tag_list(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + value.len() / 8);
+    let mut line_len = 0;
+    let mut rest = value;
+    loop {
+        let (chunk, remainder) = match rest.find("; ") {
+            Some(pos) => rest.split_at(pos + 2),
+            None => (rest, ""),
+        };
+        if line_len > 0 && line_len + chunk.len() > FOLD_WIDTH {
+            out.push_str("\n\t");
+            line_len = 0;
+        }
+        out.push_str(chunk);
+        line_len += chunk.len();
+        if remainder.is_empty() {
+            break;
+        }
+        rest = remainder;
+    }
+    out
+}
+
+/// RFC 6376 §3.4.2 relaxed header canonicalization of one header field.
+/// Returns `"name:value"` (no trailing CRLF, no space after the colon).
+///
+/// For a header field taken from the message itself use
+/// [`canonicalize_header_bytes`]; this wrapper is for values we generate
+/// ourselves and therefore know to be valid UTF-8.
+fn canonicalize_header_relaxed(name: &str, value: &str) -> String {
+    String::from_utf8_lossy(&canonicalize_header_bytes(name, value.as_bytes())).into_owned()
+}
+
+/// As [`canonicalize_header_relaxed`], but byte-exact.
+///
+/// A message's header values are arbitrary octets. MUAs still emit raw
+/// Latin-1 (and other 8-bit) bytes in `Subject:` and in display names rather
+/// than RFC 2047 encoded words
+fn canonicalize_header_bytes(name: &str, value: &[u8]) -> Vec<u8> {
+    let name = trim_wsp_str(name).to_ascii_lowercase();
+    let unfolded = unfold_bytes(value);
+    let collapsed = collapse_wsp(&unfolded);
+    let trimmed = trim_wsp(&collapsed);
+    let mut out = Vec::with_capacity(name.len() + 1 + trimmed.len());
+    out.extend_from_slice(name.as_bytes());
+    out.push(b':');
+    out.extend_from_slice(trimmed);
+    out
+}
+
+/// RFC 5322 unfolding: a line terminator immediately followed by WSP is
+/// removed, keeping the WSP itself (later collapsed by [`collapse_wsp`]).
+///
+/// Accept "\r\n", "\r" or "\n" as line terminator. Postfix milter protocol uses "\n".
+fn unfold_bytes(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let terminator = match bytes[i] {
+            b'\r' if bytes.get(i + 1) == Some(&b'\n') => 2,
+            b'\r' | b'\n' => 1,
+            _ => 0,
+        };
+        if terminator > 0 && matches!(bytes.get(i + terminator), Some(b' ' | b'\t')) {
+            i += terminator;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Converts every run of one or more WSP (space/tab) bytes to a single SP.
+fn collapse_wsp(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut in_wsp = false;
+    for &b in bytes {
+        if b == b' ' || b == b'\t' {
+            in_wsp = true;
+        } else {
+            if in_wsp {
+                out.push(b' ');
+                in_wsp = false;
+            }
+            out.push(b);
+        }
+    }
+    out
+}
+
+fn is_wsp(b: &u8) -> bool {
+    *b == b' ' || *b == b'\t'
+}
+
+fn trim_wsp(bytes: &[u8]) -> &[u8] {
+    let start = bytes.iter().position(|b| !is_wsp(b)).unwrap_or(bytes.len());
+    let end = bytes.iter().rposition(|b| !is_wsp(b)).map_or(0, |i| i + 1);
+    if start >= end {
+        &[]
+    } else {
+        &bytes[start..end]
+    }
+}
+
+fn trim_wsp_str(s: &str) -> &str {
+    // Header names and values are always ASCII, so byte and char
+    // boundaries coincide; safe to reuse the byte-oriented trimmer.
+    std::str::from_utf8(trim_wsp(s.as_bytes())).unwrap_or(s)
+}
+
+/// RFC 6376 §3.4.4 relaxed body canonicalization.
+fn canonicalize_body_relaxed(body: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(body.len());
+    let mut rest = body;
+    loop {
+        match rest.windows(2).position(|w| w == b"\r\n") {
+            Some(pos) => {
+                append_canonical_line(&mut out, &rest[..pos]);
+                out.extend_from_slice(b"\r\n");
+                rest = &rest[pos + 2..];
+            }
+            None => {
+                if !rest.is_empty() {
+                    append_canonical_line(&mut out, rest);
+                    out.extend_from_slice(b"\r\n");
+                }
+                break;
+            }
+        }
+    }
+    // Ignore all empty lines at the end of the message body (an empty body
+    // to begin with is the degenerate case: canonical form is the empty
+    // string, not a CRLF -- that rule belongs to simple canonicalization).
+    loop {
+        if out == b"\r\n" {
+            out.clear();
+        } else if out.ends_with(b"\r\n\r\n") {
+            out.truncate(out.len() - 2);
+        } else {
+            break;
+        }
+    }
+    out
+}
+
+/// Collapses intra-line WSP runs to a single SP and drops trailing WSP,
+/// appending the result (without a line terminator) to `out`.
+fn append_canonical_line(out: &mut Vec<u8>, line: &[u8]) {
+    let mut in_wsp = false;
+    for &b in line {
+        if b == b' ' || b == b'\t' {
+            in_wsp = true;
+        } else {
+            if in_wsp {
+                out.push(b' ');
+                in_wsp = false;
+            }
+            out.push(b);
+        }
+    }
+    // A trailing WSP run is simply never flushed.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rsa::RsaPublicKey;
+
+    fn unfold(value: &str) -> String {
+        String::from_utf8_lossy(&unfold_bytes(value.as_bytes())).into_owned()
+    }
+
+    // RFC 6376 3.4.4: SHA-256 of the empty string, published directly in
+    // the RFC text as the hash of a relaxed-canonicalized empty body.
+    const EMPTY_BODY_SHA256_B64: &str = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
+
+    #[test]
+    fn wants_header_matches_configured_names_case_insensitively() {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let signer = DkimSigner {
+            domain: "example.com".to_string(),
+            selector: "sel1".to_string(),
+            private_key,
+            headers: vec!["from".to_string(), "subject".to_string()],
+        };
+        assert!(signer.wants_header("From"));
+        assert!(signer.wants_header("subject"));
+        assert!(signer.wants_header("SUBJECT"));
+        assert!(!signer.wants_header("To"));
+    }
+
+    #[test]
+    fn fold_tag_list_packs_tags_up_to_width_without_splitting_one() {
+        let value = "v=1; a=rsa-sha256; c=relaxed/relaxed; d=example.com; \
+                      s=selector1; t=1234567890; h=from:subject:date; \
+                      bh=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=; \
+                      cc=short";
+        let folded = fold_tag_list(value);
+
+        assert!(folded.contains("\n\t"), "long value was not folded at all");
+        assert!(
+            !folded.contains('\r'),
+            "fold marker must be bare LF: Postfix supplies the CR itself \
+             when it later re-emits the header, and a literal CR here \
+             survives as stray data ahead of that, producing a blank line"
+        );
+        for line in folded.split("\n\t") {
+            assert!(line.len() <= FOLD_WIDTH, "line exceeds width: {line:?}");
+        }
+        // Postfix re-emits each LF-separated piece with a real CRLF; relaxed
+        // unfolding+collapsing of that wire form (what every verifier
+        // applies) must reproduce the pre-fold canonical text, i.e. no fold
+        // landed in the middle of a tag.
+        let on_the_wire = folded.replace('\n', "\r\n");
+        assert_eq!(
+            collapse_wsp(unfold(&on_the_wire).as_bytes()),
+            collapse_wsp(value.as_bytes())
+        );
+    }
+
+    #[test]
+    fn fold_tag_list_leaves_short_value_on_one_line() {
+        let value = "v=1; a=rsa-sha256; d=x.com; b=AAAA";
+        assert_eq!(fold_tag_list(value), value);
+    }
+
+    #[test]
+    fn header_lowercases_name_and_removes_space_after_colon() {
+        // RFC 6376 3.4.5 Example: "A: X" canonicalizes to "a:X".
+        assert_eq!(canonicalize_header_relaxed("A", " X"), "a:X");
+        assert_eq!(canonicalize_header_relaxed("SUBJect", "AbC"), "subject:AbC");
+    }
+
+    #[test]
+    fn header_unfolds_and_collapses_and_trims() {
+        // RFC 6376 3.4.5 Example: "B : Y<HTAB><CRLF><HTAB>Z<SP><SP>"
+        // canonicalizes to "b:Y Z".
+        assert_eq!(canonicalize_header_relaxed("B ", "Y\t\r\n\tZ  "), "b:Y Z");
+    }
+
+    #[test]
+    fn header_with_no_embedded_fold_is_unaffected_by_unfold() {
+        assert_eq!(
+            canonicalize_header_relaxed("X", "plain value"),
+            "x:plain value"
+        );
+    }
+
+    #[test]
+    fn unfold_removes_only_the_crlf_before_wsp() {
+        assert_eq!(unfold("Y\t\r\n\tZ"), "Y\t\tZ");
+        assert_eq!(unfold("no fold here"), "no fold here");
+    }
+
+    #[test]
+    fn header_folded_with_bare_lf_canonicalizes_like_crlf() {
+        // This is the form Postfix actually delivers: milter8_header() passes
+        // the queue-file value through, whose continuation lines are separated
+        // by a bare LF ("Sendmail 8 sends multi-line headers as text separated
+        // by newline"). The verifier sees the CRLF-folded wire form, so both
+        // must canonicalize to the same octets or the signature fails on every
+        // message with a folded signed header.
+        assert_eq!(
+            canonicalize_header_bytes("Subject", b"Y\t\n\tZ  "),
+            canonicalize_header_bytes("Subject", b"Y\t\r\n\tZ  ")
+        );
+        assert_eq!(canonicalize_header_bytes("B ", b"Y\t\n\tZ  "), b"b:Y Z");
+    }
+
+    #[test]
+    fn header_value_octets_are_hashed_verbatim() {
+        // Raw 8-bit bytes in a header value are not valid UTF-8 and must not
+        // be replaced by U+FFFD: the verifier hashes what is on the wire.
+        assert_eq!(
+            canonicalize_header_bytes("Subject", b"Verl\xe4gerung"),
+            b"subject:Verl\xe4gerung"
+        );
+    }
+
+    #[test]
+    fn body_collapses_and_trims_per_rfc_example() {
+        // RFC 6376 3.4.5 Example 1/2: body " C \r\nD \t E\r\n\r\n\r\n"
+        // canonicalizes (relaxed) to " C\r\nD E\r\n".
+        let raw = b" C \r\nD \t E\r\n\r\n\r\n";
+        assert_eq!(canonicalize_body_relaxed(raw), b" C\r\nD E\r\n");
+    }
+
+    #[test]
+    fn body_adds_missing_trailing_crlf() {
+        assert_eq!(canonicalize_body_relaxed(b"Hello"), b"Hello\r\n");
+    }
+
+    #[test]
+    fn body_of_only_blank_lines_canonicalizes_to_empty() {
+        assert_eq!(canonicalize_body_relaxed(b"\r\n"), b"");
+        assert_eq!(canonicalize_body_relaxed(b"\r\n\r\n\r\n"), b"");
+    }
+
+    #[test]
+    fn empty_body_canonicalizes_to_empty_string_not_crlf() {
+        let canonical = canonicalize_body_relaxed(b"");
+        assert_eq!(canonical, b"");
+        let hash = Sha256::digest(canonical);
+        assert_eq!(BASE64.encode(hash), EMPTY_BODY_SHA256_B64);
+    }
+
+    #[test]
+    fn force_l0_hashes_empty_body_regardless_of_input() {
+        // force_l0 is only ever used by the caller with an empty body, but
+        // the hash itself must match the same empty-body constant.
+        let hash = Sha256::digest([]);
+        assert_eq!(BASE64.encode(hash), EMPTY_BODY_SHA256_B64);
+    }
+
+    #[test]
+    fn sign_produces_independently_verifiable_signature() {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let public_key = RsaPublicKey::from(&private_key);
+        let signer = DkimSigner {
+            domain: "example.com".to_string(),
+            selector: "sel1".to_string(),
+            private_key,
+            headers: vec!["from".to_string(), "subject".to_string()],
+        };
+        let headers = vec![
+            ("From".to_string(), b"alice@example.com".to_vec()),
+            ("Subject".to_string(), b"Hello".to_vec()),
+        ];
+        let body: &[u8] = b"body text\r\n";
+        let value = signer.sign(&headers, body, false).unwrap();
+
+        assert!(value.starts_with("v=1; a=rsa-sha256; c=relaxed/relaxed;"));
+        assert!(value.contains("h=from:subject;"));
+        assert!(!value.contains("l=0"));
+        // A real 2048-bit signature makes the value long enough to fold;
+        // the signature must still verify against the folded text below.
+        assert!(value.contains("\n\t"));
+        assert!(!value.contains('\r'), "fold marker must be bare LF");
+        for line in value.split("\n\t") {
+            assert!(line.len() <= FOLD_WIDTH, "line exceeds width: {line:?}");
+        }
+
+        let b_pos = value.rfind("b=").unwrap();
+
+        let bh_start = value.find("bh=").unwrap() + 3;
+        let bh_end = value[bh_start..].find(';').unwrap() + bh_start;
+        let expected_bh = BASE64.encode(Sha256::digest(canonicalize_body_relaxed(body)));
+        assert_eq!(&value[bh_start..bh_end], expected_bh);
+
+        // Postfix re-emits each LF-separated piece of the header with a
+        // real CRLF; verify against that wire form, the same way a real
+        // downstream verifier would.
+        let on_the_wire = value.replace('\n', "\r\n");
+        let b_pos_wire = on_the_wire.rfind("b=").unwrap();
+
+        // Rebuild the exact bytes sign() should have hashed and verify
+        // the signature independently via the public key.
+        let mut signed_data = Vec::new();
+        signed_data
+            .extend_from_slice(canonicalize_header_relaxed("From", "alice@example.com").as_bytes());
+        signed_data.extend_from_slice(b"\r\n");
+        signed_data.extend_from_slice(canonicalize_header_relaxed("Subject", "Hello").as_bytes());
+        signed_data.extend_from_slice(b"\r\n");
+        signed_data.extend_from_slice(
+            canonicalize_header_relaxed("DKIM-Signature", &on_the_wire[..b_pos_wire + 2])
+                .as_bytes(),
+        );
+        let digest = Sha256::digest(&signed_data);
+
+        // Verifiers strip fold whitespace from a tag's value (RFC 6376 3.2).
+        let b_value: String = value[b_pos + 2..]
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        let signature = BASE64.decode(&b_value).unwrap();
+        public_key
+            .verify(Pkcs1v15Sign::new::<Sha256>(), &digest, &signature)
+            .unwrap();
+    }
+
+    #[test]
+    fn sign_with_force_l0_declares_l0_and_empty_body_hash() {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let signer = DkimSigner {
+            domain: "example.com".to_string(),
+            selector: "sel1".to_string(),
+            private_key,
+            headers: vec!["from".to_string()],
+        };
+        let headers = vec![("From".to_string(), b"alice@example.com".to_vec())];
+        let value = signer.sign(&headers, b"", true).unwrap();
+
+        assert!(value.contains("l=0;"));
+        let bh_start = value.find("bh=").unwrap() + 3;
+        let bh_end = value[bh_start..].find(';').unwrap() + bh_start;
+        assert_eq!(&value[bh_start..bh_end], EMPTY_BODY_SHA256_B64);
+    }
+
+    #[test]
+    fn sign_treats_absent_header_as_null_string_but_still_lists_it() {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let signer = DkimSigner {
+            domain: "example.com".to_string(),
+            selector: "sel1".to_string(),
+            private_key,
+            headers: vec!["from".to_string(), "comments".to_string()],
+        };
+        // No "Comments" header actually present.
+        let headers = vec![("From".to_string(), b"alice@example.com".to_vec())];
+        let value = signer.sign(&headers, b"", false).unwrap();
+        assert!(value.contains("h=from:comments;"));
+    }
+
+    #[test]
+    fn sign_uses_bottom_most_instance_first_for_duplicates() {
+        let mut rng = rand::thread_rng();
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let public_key = RsaPublicKey::from(&private_key);
+        let signer = DkimSigner {
+            domain: "example.com".to_string(),
+            selector: "sel1".to_string(),
+            private_key,
+            headers: vec!["received".to_string(), "received".to_string()],
+        };
+        // RFC 6376 5.4.2's own example: three Received headers, sign two,
+        // bottom-to-top order means <C> then <B>.
+        let headers = vec![
+            ("Received".to_string(), b"<A>".to_vec()),
+            ("Received".to_string(), b"<B>".to_vec()),
+            ("Received".to_string(), b"<C>".to_vec()),
+        ];
+        let value = signer.sign(&headers, b"", false).unwrap();
+        let b_pos = value.rfind("b=").unwrap();
+        // Postfix re-emits each LF-separated piece of the header with a
+        // real CRLF; verify against that wire form, as a real downstream
+        // verifier would.
+        let on_the_wire = value.replace('\n', "\r\n");
+        let b_pos_wire = on_the_wire.rfind("b=").unwrap();
+
+        let mut signed_data = Vec::new();
+        signed_data.extend_from_slice(canonicalize_header_relaxed("Received", "<C>").as_bytes());
+        signed_data.extend_from_slice(b"\r\n");
+        signed_data.extend_from_slice(canonicalize_header_relaxed("Received", "<B>").as_bytes());
+        signed_data.extend_from_slice(b"\r\n");
+        signed_data.extend_from_slice(
+            canonicalize_header_relaxed("DKIM-Signature", &on_the_wire[..b_pos_wire + 2])
+                .as_bytes(),
+        );
+        let digest = Sha256::digest(&signed_data);
+        let b_value: String = value[b_pos + 2..]
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        let signature = BASE64.decode(&b_value).unwrap();
+        public_key
+            .verify(Pkcs1v15Sign::new::<Sha256>(), &digest, &signature)
+            .unwrap();
+    }
+}
