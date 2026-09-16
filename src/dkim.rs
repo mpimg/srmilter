@@ -386,8 +386,7 @@ impl<'a, P: Pipe> Pipe for BodyCanonicalizer<'a, P> {
     fn done(&mut self) {
         if !self.buf.is_empty() {
             // last line has no trailing CRLF in input; still gets one in output
-            let line = std::mem::take(&mut self.buf);
-            self.emit_line_bytes(&line);
+            self.emit_line(0..self.buf.len());
         }
         // pending_blanks simply never flushed => correctly dropped
         self.out.done();
@@ -396,13 +395,12 @@ impl<'a, P: Pipe> Pipe for BodyCanonicalizer<'a, P> {
 
 impl<'a, P: Pipe> BodyCanonicalizer<'a, P> {
     fn emit_line(&mut self, range: std::ops::Range<usize>) {
-        let line = self.buf[range].to_vec(); // small, single line only
-        self.emit_line_bytes(&line);
+        let mut canon = Vec::with_capacity(range.len());
+        append_canonical_line(&mut canon, &self.buf[range]);
+        self.emit_canon(canon);
     }
 
-    fn emit_line_bytes(&mut self, line: &[u8]) {
-        let mut canon = Vec::with_capacity(line.len());
-        append_canonical_line(&mut canon, line);
+    fn emit_canon(&mut self, canon: Vec<u8>) {
         if canon.is_empty() {
             self.pending_blanks += 1;
         } else {
