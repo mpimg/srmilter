@@ -359,6 +359,7 @@ struct BodyCanonicalizer<'a, P: Pipe> {
     out: &'a mut P,
     buf: Vec<u8>,          // holds an incomplete trailing line across write() calls
     pending_blanks: usize, // count of blank CRLF lines not yet emitted
+    octets_written: usize, // number of octets written to out
 }
 
 impl<'a, P: Pipe> BodyCanonicalizer<'a, P> {
@@ -367,6 +368,7 @@ impl<'a, P: Pipe> BodyCanonicalizer<'a, P> {
             out,
             buf: Vec::new(),
             pending_blanks: 0,
+            octets_written: 0,
         }
     }
 }
@@ -409,10 +411,12 @@ impl<'a, P: Pipe> BodyCanonicalizer<'a, P> {
             // only ever dropped when done() is reached with none flushed.
             for _ in 0..self.pending_blanks {
                 self.out.write(b"\r\n");
+                self.octets_written += 2;
             }
             self.pending_blanks = 0;
             self.out.write(&canon);
             self.out.write(b"\r\n");
+            self.octets_written += canon.len() + 2;
         }
     }
 }
@@ -757,6 +761,8 @@ mod tests {
         let mut bc = BodyCanonicalizer::new(&mut v);
         bc.write(body);
         bc.done();
+        let octets_written = bc.octets_written;
+        assert_eq!(octets_written, v.len());
         v
     }
 }
