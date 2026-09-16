@@ -496,11 +496,11 @@ fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
 pub(crate) fn dkim_sign(
     config: &Config,
     storage: &MailInfoStorage,
-    force_l0: bool,
+    truncated: bool,
 ) -> Option<Vec<u8>> {
     let signer = config.dkim_signer.as_ref()?;
     let body = &storage.mail_buffer[storage.header_end..];
-    match signer.sign(&storage.dkim_header_pairs, body, force_l0) {
+    match signer.sign(&storage.dkim_header_pairs, body, truncated) {
         Ok(value) => Some(value.into_bytes()),
         Err(e) => {
             eprintln!("{}: DKIM signing failed: {e}", storage.id);
@@ -596,21 +596,36 @@ mod tests {
     }
 
     #[test]
-    fn dkim_sign_declares_l0_only_when_forced() {
+    fn dkim_sign_declares_l_when_trucated() {
         let config = Config::builder().dkim_signer(test_dkim_signer()).build();
+
+        let storage = MailInfoStorage {
+            id: "test".to_string(),
+            mail_buffer: b"From: a@example.com\r\n\r\n".to_vec(),
+            dkim_header_pairs: vec![("From".to_string(), b"a@example.com".to_vec())],
+            header_end: 23,
+            ..Default::default()
+        };
+
+        let dkim_value = dkim_sign(&config, &storage, false).unwrap();
+        assert!(!String::from_utf8(dkim_value).unwrap().contains("l="));
+
+        let dkim_value = dkim_sign(&config, &storage, true).unwrap();
+        assert!(String::from_utf8(dkim_value).unwrap().contains("l=0; "));
+
         let storage = MailInfoStorage {
             id: "test".to_string(),
             mail_buffer: b"From: a@example.com\r\n\r\nbody\r\n".to_vec(),
             dkim_header_pairs: vec![("From".to_string(), b"a@example.com".to_vec())],
-            header_end: 22,
+            header_end: 23,
             ..Default::default()
         };
 
-        let forced = dkim_sign(&config, &storage, true).unwrap();
-        assert!(String::from_utf8(forced).unwrap().contains("l=0;"));
+        let dkim_value = dkim_sign(&config, &storage, false).unwrap();
+        assert!(!String::from_utf8(dkim_value).unwrap().contains("l="));
 
-        let normal = dkim_sign(&config, &storage, false).unwrap();
-        assert!(!String::from_utf8(normal).unwrap().contains("l=0"));
+        let dkim_value = dkim_sign(&config, &storage, true).unwrap();
+        assert!(String::from_utf8(dkim_value).unwrap().contains("l=6; "));
     }
 
     #[test]
