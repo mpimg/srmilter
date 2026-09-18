@@ -134,11 +134,6 @@ fn process_client(
                     | SMFIP_NR_EOH;
                 if truncate == 0 {
                     protocol |= SMFIP_NOBODY;
-                    // Although an email with an empty body would not be truncated, we assume it is. We want to
-                    // avoid requesting the body anyway because --truncate=0 is used as a privacy feature for
-                    // remote smtpd in production.
-                    // With --truncate=0 we don't DKIM-sign the body of any email, even not those with empty bodies.
-                    storage.body_is_truncated = true;
                 }
                 if truncate == usize::MAX {
                     protocol |= SMFIP_NR_BODY
@@ -229,6 +224,14 @@ fn process_client(
                     .map(AsRef::as_ref)
                     .unwrap_or("-")
                     .to_string();
+                if truncate == 0 {
+                    // We didn't request body, so truncation can't be detected in the 'B' arm.
+                    // Although an email with an empty body would not be truncated, we assume it is. We want to
+                    // avoid requesting the body anyway because --truncate=0 is used as a privacy feature for
+                    // remote smtpd in production.
+                    // With --truncate=0 we don't DKIM-sign the body of any email, even not those with empty bodies.
+                    storage.body_is_truncated = true;
+                }
                 let result = classify_mail(config, &storage);
                 if matches!(result, ClassifyResult::Accept | ClassifyResult::Quarantine)
                     && let Some(header_value) = crate::dkim_sign(config, &storage)
