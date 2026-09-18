@@ -87,11 +87,12 @@ fn classify(_ctx: &(), mail_info: &MailInfo) -> ClassifyResult {
 
 Signing happens only when the classifier's verdict is `Accept` or
 `Quarantine`, and is best-effort: a signing failure is logged and the mail
-is still delivered unsigned rather than blocked. DKIM signing requires
-either the full message body (the default) or no body at all
-(`--truncate 0`, which produces a `l=0` signature covering no body bytes);
-any other `--truncate` value combined with a configured `DkimSigner` is
-rejected at daemon startup.
+is still delivered unsigned rather than blocked. When the body has been
+cut short by `--truncate`, the signature carries an `l=` tag declaring how
+many canonicalized body bytes it covers (`l=0` for `--truncate 0`).
+Combining DKIM signing with `--truncate` is not recommended: it is not
+clear whether all verifiers handle partial body signatures, or how email
+classification at the receiving side is affected by them.
 
 ## CLI Commands
 

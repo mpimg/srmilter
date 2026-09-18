@@ -124,12 +124,15 @@ The milter has to run on the outbound path. In Postfix that means
 `smtpd_milters` on the submission service, or `non_smtpd_milters` for
 locally injected mail. Signing inbound mail achieves nothing.
 
-Body truncation has to be compatible with signing. Either accept the full
-body, which is the default, or use `--truncate 0`, which produces a
-signature declaring `l=0` and covering no body bytes. Any other
-`--truncate` value combined with a configured signer is rejected when the
-daemon starts, because a body cut at an arbitrary byte offset cannot be
-covered honestly by the `l=` mechanism of RFC 6376.
+Body truncation should be left at the default when signing. With the
+default of accepting the full body, the signature covers the whole body.
+With `--truncate 0` the signature declares `l=0` and covers no body bytes.
+With any other `--truncate` value, the signature covers the body up to the
+last complete line that was received and declares that length in an `l=`
+tag, as allowed by RFC 6376. Combining signing with `--truncate` is not
+recommended: it is not clear whether all verifiers handle partial body
+signatures, or how email classification at the receiving side is affected
+by them.
 
 ## Which headers are signed
 
@@ -180,8 +183,9 @@ producing a signature that verifies.
 
 Do not use the `l=` body length tag to survive appended footers. It lets
 an attacker add arbitrary content below the signed prefix with the
-signature still verifying. srmilter emits `l=` only in the `--truncate 0`
-case described above, where it honestly declares zero body bytes.
+signature still verifying. srmilter emits `l=` only when the body was cut
+short by `--truncate`, as described above, and then declares exactly the
+bytes it hashed. Do not use `--truncate` as a way to tolerate footers.
 
 None of this affects acceptance at the large providers. The Google and
 Yahoo bulk sender requirements ask for a DKIM pass with DMARC alignment on
@@ -270,6 +274,3 @@ A `dkim=fail` on a signature that is present indicates the signed content
 did not survive transit. The common cause is a mail system between
 srmilter and the receiver modifying a signed header or the body, for
 example a mailing list appending a footer.
-
-A daemon that refuses to start with a message about truncation is
-reporting the `--truncate` restriction described in step 4.
