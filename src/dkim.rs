@@ -596,9 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn force_l0_hashes_empty_body_regardless_of_input() {
-        // force_l0 is only ever used by the caller with an empty body, but
-        // the hash itself must match the same empty-body constant.
+    fn empty_body_hash_is_correct() {
         let hash = Sha256::digest([]);
         assert_eq!(BASE64.encode(hash), EMPTY_BODY_SHA256_B64);
     }
@@ -671,7 +669,7 @@ mod tests {
     }
 
     #[test]
-    fn sign_with_force_l0_declares_l0_and_empty_body_hash() {
+    fn sign_with_truncate0_declares_l0_and_empty_body_hash() {
         let mut rng = rand::thread_rng();
         let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let signer = DkimSigner {
