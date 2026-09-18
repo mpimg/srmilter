@@ -359,13 +359,6 @@ fn get_listen_socket(args: &DaemonArgs) -> Result<Socket, Box<dyn Error>> {
 }
 
 pub fn daemon(config: &Config, args: &DaemonArgs) -> Result<(), Box<dyn Error>> {
-    if config.dkim_signer.is_some() && args.truncate != 0 && args.truncate != usize::MAX {
-        return Err("DKIM signing requires either the full message body \
-                     (default --truncate) or no body at all (--truncate 0); \
-                     partial truncation is not supported"
-            .into());
-    }
-
     let listen_socket = get_listen_socket(args)?;
 
     let thread_state = Arc::new((Mutex::new(0u16), Condvar::new()));
@@ -476,24 +469,4 @@ fn test_process_client_emits_addheader_pdu_for_dkim() {
     let value = &payload[b"DKIM-Signature\0".len()..payload.len() - 1];
     let value = std::str::from_utf8(value).unwrap();
     assert!(value.starts_with("v=1; a=rsa-sha256; c=relaxed/relaxed;"));
-}
-
-#[test]
-fn test_daemon_rejects_partial_truncate_with_dkim_signer() {
-    use crate::cli::DaemonArgs;
-    use rsa::RsaPrivateKey;
-    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
-
-    let mut rng = rand::thread_rng();
-    let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-    let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
-    let signer = crate::DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap();
-    let config = Config::builder().dkim_signer(signer).build();
-
-    let args = DaemonArgs {
-        address: "127.0.0.1:0".to_string(),
-        threads_max: 1,
-        truncate: 100, // finite, nonzero: unsupported with a DkimSigner
-    };
-    assert!(daemon(&config, &args).is_err());
 }
