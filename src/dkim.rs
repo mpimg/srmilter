@@ -442,7 +442,7 @@ fn append_canonical_line(out: &mut Vec<u8>, line: &[u8]) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use rsa::RsaPublicKey;
 
@@ -456,12 +456,10 @@ mod tests {
 
     #[test]
     fn wants_header_matches_configured_names_case_insensitively() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
-            private_key,
+            private_key: get_test_private_key(),
             headers: vec!["from".to_string(), "subject".to_string()],
         };
         assert!(signer.wants_header("From"));
@@ -603,9 +601,7 @@ mod tests {
 
     #[test]
     fn sign_produces_independently_verifiable_signature() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let public_key = RsaPublicKey::from(&private_key);
+        let (private_key, public_key) = get_test_keys();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
@@ -670,12 +666,10 @@ mod tests {
 
     #[test]
     fn sign_with_truncate0_declares_l0_and_empty_body_hash() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
-            private_key,
+            private_key: get_test_private_key(),
             headers: vec!["from".to_string()],
         };
         let headers = vec![("From".to_string(), b"alice@example.com".to_vec())];
@@ -689,12 +683,10 @@ mod tests {
 
     #[test]
     fn sign_treats_absent_header_as_null_string_but_still_lists_it() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
-            private_key,
+            private_key: get_test_private_key(),
             headers: vec!["from".to_string(), "comments".to_string()],
         };
         // No "Comments" header actually present.
@@ -705,9 +697,7 @@ mod tests {
 
     #[test]
     fn sign_uses_bottom_most_instance_first_for_duplicates() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let public_key = RsaPublicKey::from(&private_key);
+        let (private_key, public_key) = get_test_keys();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
@@ -787,8 +777,54 @@ mod tests {
                 bc.write(&body[..k]);
                 bc.done();
                 assert_eq!(bc.octets_written, v.len());
-                assert!(full.starts_with(&v), "cut at {k} of {body:?}: {v:?} not a prefix of {full:?}");
+                assert!(
+                    full.starts_with(&v),
+                    "cut at {k} of {body:?}: {v:?} not a prefix of {full:?}"
+                );
             }
         }
+    }
+
+    fn get_test_keys() -> (RsaPrivateKey, RsaPublicKey) {
+        let private_key = get_test_private_key();
+        let public_key = RsaPublicKey::from(&private_key);
+        (private_key, public_key)
+    }
+
+    fn get_test_private_key() -> RsaPrivateKey {
+        RsaPrivateKey::from_pkcs8_pem(get_test_private_key_pem()).unwrap()
+    }
+
+    pub(crate) fn get_test_private_key_pem() -> &'static str {
+        concat!(
+            "-----BEGIN PRIVATE KEY-----\n",
+            "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCkvuBdTMNsByva\n",
+            "UnBnO+h2l3/dCWCENSq7LRroK+r4biW0FarZZhNodH62RraRZfSPwKT5oogz3s5l\n",
+            "rKgMITsjpAGXJ2LtwIqHgDSqUkSaFg3YKQrENhxLp1+W/LWeQBzoUYaRANn/JKJh\n",
+            "obzNrBfP5RlYOaWVmXfNnAJ9nBuu5WI31U34L2p9yIdJLnwwubjZ1LqSJIfMm9C2\n",
+            "+PFKkvhIDINhJrV9jHhqgvSmYe5/x5d9sMtiW7X34Qz2P1FWKjd4nJs51kAjln8b\n",
+            "DGo4QGVM/3GHz5kDX4+ZkEnFl6gEvLvk/sKup4WCHpI1oCG6IdZud7XSScqOijNf\n",
+            "jl/iBCNbAgMBAAECggEAOTcDQ9PbkMKC091KpUe0ia8+3Fyb1P6D+yKElDpgbewP\n",
+            "ExZtUfg16FKBCTvQvvlaMKyWfw4X4G/SXZRTfnbyC4QzezPWEz0Jv1pir/5HTf43\n",
+            "y6khUJh8Rjf4Jj9Ysf+RKovZwLU7gHVQIbkikYlhcbWekjnfDHASn+k9IjObl6cK\n",
+            "T9uFRblYtcJuWPRIsoTBK41OYhnhlSXH56ZEd5qZODYu/2EPykfn/QZMKdXwmIfv\n",
+            "JaHP6uhpQ100zPTruhLPROMus+lM0qsHDdsKGserWJbF2JxR+KjmrzEEgY/AssAL\n",
+            "ceL2L1Hh3o0J/X9or/S+9I3dDcjeuItfpVqYiUQ0aQKBgQDe51uPa9gZV7oXFO+w\n",
+            "g6wTVJqzMon/NYYc9D0vmmhOl3N82PHDbPWEist82oL1nckRQCaHovBPqpQW9hcQ\n",
+            "x1GHpp+mHzHuL8BIpbun8W3exitisDg49F/btvIQbx2clrlZ8HRaN1ZFEL2s4kHy\n",
+            "ib4sbCSYqqPGox3cMDbPJRQCIwKBgQC9NOjhRbSA9IglmyAN6NFXNiPGt8mBxKlR\n",
+            "9VWQy+WSM5It1I9oYp8apR6LSADj1VRDMtaoULY199YffyPAR5kvU3KyIpO14brZ\n",
+            "vYeDL33qEfzGXT0P4uBIzUSXCOB+5xoHA46kWEu+ccMO8mMRvpN3mvvxsVHG1FkI\n",
+            "MNdECABhaQKBgAd3Mj7cetFmecoaHmkID/RZyhCkabDNhx9jIsV8Y2/2bJzK21YT\n",
+            "SSnWSDh3TRmS3lAgmOnEEE5qxSj7twwN0PI9J22178MtgEAupNlcIbTraDqW8lsd\n",
+            "/DPsrbDVN+WtuqmDfzIiVlZb2C55KYJJEMCGIremR3P4tKBSUROhB0mHAoGAA/py\n",
+            "0xnGG9gIbNIAMIqurCjFQ85lfEcIUGLaM7s1zocrEa+gfE9mjQbfx4nyCthXdzpA\n",
+            "bTWVPzlA1VS1Cbv3qpkUlk5H0NE4Po/Po6CCA0PxjrIzMHxSvvUh9hMHtWNilrcq\n",
+            "bqY0oYJ+2XebQapCK4ekuIZD8+xPGu7798A7UdECgYEAmLwR2CX1hHo2ZEFpI2LZ\n",
+            "iWMElRCHvBStT/4dTPSczxIxpmztQGG8eKc3RYIRPT1Qr8E/kf15Yx05mM8Lco+X\n",
+            "6Ak5F2Alu66gsi2JjVqdCaswvB/wkMCaByFSOdC6hUisNwT3RXc9i+tQuJL3v1Om\n",
+            "b2CcW8xCk6lZU515owH0bXM=\n",
+            "-----END PRIVATE KEY-----\n",
+        )
     }
 }

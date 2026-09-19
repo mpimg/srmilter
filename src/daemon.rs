@@ -433,13 +433,8 @@ mod test {
 
     #[test]
     fn test_process_client_emits_addheader_pdu_for_dkim() {
-        use rsa::RsaPrivateKey;
-        use rsa::pkcs8::{EncodePrivateKey, LineEnding};
-
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
-        let signer = crate::DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap();
+        let pem = crate::dkim::tests::get_test_private_key_pem();
+        let signer = crate::DkimSigner::from_pkcs8_pem(pem, "example.com", "sel1").unwrap();
         let config = Config::builder().dkim_signer(signer).build();
 
         let mut input = Vec::new();

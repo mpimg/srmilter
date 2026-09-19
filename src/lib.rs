@@ -585,14 +585,10 @@ impl ConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rsa::RsaPrivateKey;
-    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
 
     fn test_dkim_signer() -> DkimSigner {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
-        DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap()
+        let pem = dkim::tests::get_test_private_key_pem();
+        DkimSigner::from_pkcs8_pem(pem, "example.com", "sel1").unwrap()
     }
 
     #[test]
