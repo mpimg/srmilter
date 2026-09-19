@@ -765,4 +765,30 @@ mod tests {
         assert_eq!(octets_written, v.len());
         v
     }
+
+    #[test]
+    fn truncated_canonicalization_is_prefix_of_full() {
+        let bodies: &[&[u8]] = &[
+            b"line one\r\nline  two  \r\n\r\n\r\nline three\r\n",
+            b"a \t b\r\n\r\nx\r\n\r\n",
+            b"no trailing crlf at all",
+            b"ends with cr\r",
+            b"tabs\t\tand   spaces \r\nmore body\r\n\r\ntail",
+            b"\r\n\r\nleading blanks\r\n",
+        ];
+        for body in bodies {
+            let mut full = Vec::new();
+            let mut bc = BodyCanonicalizer::new(&mut full, false);
+            bc.write(body);
+            bc.done();
+            for k in 0..=body.len() {
+                let mut v = Vec::new();
+                let mut bc = BodyCanonicalizer::new(&mut v, true);
+                bc.write(&body[..k]);
+                bc.done();
+                assert_eq!(bc.octets_written, v.len());
+                assert!(full.starts_with(&v), "cut at {k} of {body:?}: {v:?} not a prefix of {full:?}");
+            }
+        }
+    }
 }
