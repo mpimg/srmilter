@@ -4,7 +4,7 @@ use rsa::pkcs8::DecodePrivateKey;
 use rsa::{Pkcs1v15Sign, RsaPrivateKey};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Default set of header field names to sign, in signing order.
@@ -110,25 +110,21 @@ impl DkimSigner {
     /// `DKIM-Signature:`) for a message.
     ///
     /// `headers` is the ordered list of raw `(name, value)` pairs as
-    /// delivered by the milter `'L'` command, verbatim. `force_l0` must be
-    /// set when `body` is known to be incomplete (the caller received no
-    /// body at all); in that case the signature declares `l=0`, honestly
-    /// covering zero body bytes, and `body` is expected to be empty.
+    /// delivered by the milter `'L'` command, verbatim. `truncated` must
+    /// be set when `body` is known to be incomplete. In that case the
+    /// signature gets a `l=NNN` tag with the size of the signed (canonicalized) body.
     pub(crate) fn sign(
         &self,
         headers: &[(String, Vec<u8>)],
         body: &[u8],
-        force_l0: bool,
+        truncated: bool,
     ) -> Result<String, DkimError> {
-        let body_hash = if force_l0 {
-            Sha256::digest([])
-        } else {
-            let mut hasher = Sha256::new();
-            let mut bc = BodyCanonicalizer::new(&mut hasher);
-            bc.write(body);
-            bc.done();
-            hasher.finalize()
-        };
+        let mut hasher = Sha256::new();
+        let mut bc = BodyCanonicalizer::new(&mut hasher, truncated);
+        bc.write(body);
+        bc.done();
+        let signed_body_len = bc.octets_written;
+        let body_hash = hasher.finalize();
         let bh = BASE64.encode(body_hash);
 
         let timestamp = SystemTime::now()
@@ -136,17 +132,21 @@ impl DkimSigner {
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
-        let mut value = format!(
-            "v=1; a=rsa-sha256; c=relaxed/relaxed; d={}; s={}; t={}; h={}; bh={}; ",
+        let mut value = String::with_capacity(600);
+        value.push_str("v=1; a=rsa-sha256; c=relaxed/relaxed; ");
+        if truncated {
+            write!(value, "l={signed_body_len}; ").unwrap();
+        }
+        write!(
+            value,
+            "d={}; s={}; t={}; h={}; bh={}; ",
             self.domain,
             self.selector,
             timestamp,
             self.headers.join(":"),
             bh,
-        );
-        if force_l0 {
-            value.push_str("l=0; ");
-        }
+        )
+        .unwrap();
         value.push_str("b=");
 
         // Group actual header occurrences by lowercased name, preserving
@@ -357,16 +357,20 @@ impl Pipe for Sha256 {
 /// RFC 6376 §3.4.4 relaxed body canonicalization.
 struct BodyCanonicalizer<'a, P: Pipe> {
     out: &'a mut P,
-    buf: Vec<u8>,          // holds an incomplete trailing line across write() calls
-    pending_blanks: usize, // count of blank CRLF lines not yet emitted
+    buf: Vec<u8>,            // holds an incomplete trailing line across write() calls
+    pending_blanks: usize,   // count of blank CRLF lines not yet emitted
+    octets_written: usize,   // number of octets written to out
+    body_is_truncated: bool, // user said that the body has been truncated
 }
 
 impl<'a, P: Pipe> BodyCanonicalizer<'a, P> {
-    fn new(out: &'a mut P) -> Self {
+    fn new(out: &'a mut P, body_is_truncated: bool) -> Self {
         Self {
             out,
             buf: Vec::new(),
             pending_blanks: 0,
+            octets_written: 0,
+            body_is_truncated,
         }
     }
 }
@@ -384,7 +388,7 @@ impl<'a, P: Pipe> Pipe for BodyCanonicalizer<'a, P> {
     }
 
     fn done(&mut self) {
-        if !self.buf.is_empty() {
+        if !self.buf.is_empty() && !self.body_is_truncated {
             // last line has no trailing CRLF in input; still gets one in output
             self.emit_line(0..self.buf.len());
         }
@@ -409,10 +413,12 @@ impl<'a, P: Pipe> BodyCanonicalizer<'a, P> {
             // only ever dropped when done() is reached with none flushed.
             for _ in 0..self.pending_blanks {
                 self.out.write(b"\r\n");
+                self.octets_written += 2;
             }
             self.pending_blanks = 0;
             self.out.write(&canon);
             self.out.write(b"\r\n");
+            self.octets_written += canon.len() + 2;
         }
     }
 }
@@ -436,7 +442,7 @@ fn append_canonical_line(out: &mut Vec<u8>, line: &[u8]) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use rsa::RsaPublicKey;
 
@@ -450,12 +456,10 @@ mod tests {
 
     #[test]
     fn wants_header_matches_configured_names_case_insensitively() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
-            private_key,
+            private_key: get_test_private_key(),
             headers: vec!["from".to_string(), "subject".to_string()],
         };
         assert!(signer.wants_header("From"));
@@ -590,18 +594,14 @@ mod tests {
     }
 
     #[test]
-    fn force_l0_hashes_empty_body_regardless_of_input() {
-        // force_l0 is only ever used by the caller with an empty body, but
-        // the hash itself must match the same empty-body constant.
+    fn empty_body_hash_is_correct() {
         let hash = Sha256::digest([]);
         assert_eq!(BASE64.encode(hash), EMPTY_BODY_SHA256_B64);
     }
 
     #[test]
     fn sign_produces_independently_verifiable_signature() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let public_key = RsaPublicKey::from(&private_key);
+        let (private_key, public_key) = get_test_keys();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
@@ -665,13 +665,11 @@ mod tests {
     }
 
     #[test]
-    fn sign_with_force_l0_declares_l0_and_empty_body_hash() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+    fn sign_with_truncate0_declares_l0_and_empty_body_hash() {
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
-            private_key,
+            private_key: get_test_private_key(),
             headers: vec!["from".to_string()],
         };
         let headers = vec![("From".to_string(), b"alice@example.com".to_vec())];
@@ -685,12 +683,10 @@ mod tests {
 
     #[test]
     fn sign_treats_absent_header_as_null_string_but_still_lists_it() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
-            private_key,
+            private_key: get_test_private_key(),
             headers: vec!["from".to_string(), "comments".to_string()],
         };
         // No "Comments" header actually present.
@@ -701,9 +697,7 @@ mod tests {
 
     #[test]
     fn sign_uses_bottom_most_instance_first_for_duplicates() {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let public_key = RsaPublicKey::from(&private_key);
+        let (private_key, public_key) = get_test_keys();
         let signer = DkimSigner {
             domain: "example.com".to_string(),
             selector: "sel1".to_string(),
@@ -754,9 +748,83 @@ mod tests {
 
     fn canonicalize_body_relaxed(body: &[u8]) -> Vec<u8> {
         let mut v: Vec<u8> = Vec::new();
-        let mut bc = BodyCanonicalizer::new(&mut v);
+        let mut bc = BodyCanonicalizer::new(&mut v, false);
         bc.write(body);
         bc.done();
+        let octets_written = bc.octets_written;
+        assert_eq!(octets_written, v.len());
         v
+    }
+
+    #[test]
+    fn truncated_canonicalization_is_prefix_of_full() {
+        let bodies: &[&[u8]] = &[
+            b"line one\r\nline  two  \r\n\r\n\r\nline three\r\n",
+            b"a \t b\r\n\r\nx\r\n\r\n",
+            b"no trailing crlf at all",
+            b"ends with cr\r",
+            b"tabs\t\tand   spaces \r\nmore body\r\n\r\ntail",
+            b"\r\n\r\nleading blanks\r\n",
+        ];
+        for body in bodies {
+            let mut full = Vec::new();
+            let mut bc = BodyCanonicalizer::new(&mut full, false);
+            bc.write(body);
+            bc.done();
+            for k in 0..=body.len() {
+                let mut v = Vec::new();
+                let mut bc = BodyCanonicalizer::new(&mut v, true);
+                bc.write(&body[..k]);
+                bc.done();
+                assert_eq!(bc.octets_written, v.len());
+                assert!(
+                    full.starts_with(&v),
+                    "cut at {k} of {body:?}: {v:?} not a prefix of {full:?}"
+                );
+            }
+        }
+    }
+
+    fn get_test_keys() -> (RsaPrivateKey, RsaPublicKey) {
+        let private_key = get_test_private_key();
+        let public_key = RsaPublicKey::from(&private_key);
+        (private_key, public_key)
+    }
+
+    fn get_test_private_key() -> RsaPrivateKey {
+        RsaPrivateKey::from_pkcs8_pem(get_test_private_key_pem()).unwrap()
+    }
+
+    pub(crate) fn get_test_private_key_pem() -> &'static str {
+        concat!(
+            "-----BEGIN PRIVATE KEY-----\n",
+            "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCkvuBdTMNsByva\n",
+            "UnBnO+h2l3/dCWCENSq7LRroK+r4biW0FarZZhNodH62RraRZfSPwKT5oogz3s5l\n",
+            "rKgMITsjpAGXJ2LtwIqHgDSqUkSaFg3YKQrENhxLp1+W/LWeQBzoUYaRANn/JKJh\n",
+            "obzNrBfP5RlYOaWVmXfNnAJ9nBuu5WI31U34L2p9yIdJLnwwubjZ1LqSJIfMm9C2\n",
+            "+PFKkvhIDINhJrV9jHhqgvSmYe5/x5d9sMtiW7X34Qz2P1FWKjd4nJs51kAjln8b\n",
+            "DGo4QGVM/3GHz5kDX4+ZkEnFl6gEvLvk/sKup4WCHpI1oCG6IdZud7XSScqOijNf\n",
+            "jl/iBCNbAgMBAAECggEAOTcDQ9PbkMKC091KpUe0ia8+3Fyb1P6D+yKElDpgbewP\n",
+            "ExZtUfg16FKBCTvQvvlaMKyWfw4X4G/SXZRTfnbyC4QzezPWEz0Jv1pir/5HTf43\n",
+            "y6khUJh8Rjf4Jj9Ysf+RKovZwLU7gHVQIbkikYlhcbWekjnfDHASn+k9IjObl6cK\n",
+            "T9uFRblYtcJuWPRIsoTBK41OYhnhlSXH56ZEd5qZODYu/2EPykfn/QZMKdXwmIfv\n",
+            "JaHP6uhpQ100zPTruhLPROMus+lM0qsHDdsKGserWJbF2JxR+KjmrzEEgY/AssAL\n",
+            "ceL2L1Hh3o0J/X9or/S+9I3dDcjeuItfpVqYiUQ0aQKBgQDe51uPa9gZV7oXFO+w\n",
+            "g6wTVJqzMon/NYYc9D0vmmhOl3N82PHDbPWEist82oL1nckRQCaHovBPqpQW9hcQ\n",
+            "x1GHpp+mHzHuL8BIpbun8W3exitisDg49F/btvIQbx2clrlZ8HRaN1ZFEL2s4kHy\n",
+            "ib4sbCSYqqPGox3cMDbPJRQCIwKBgQC9NOjhRbSA9IglmyAN6NFXNiPGt8mBxKlR\n",
+            "9VWQy+WSM5It1I9oYp8apR6LSADj1VRDMtaoULY199YffyPAR5kvU3KyIpO14brZ\n",
+            "vYeDL33qEfzGXT0P4uBIzUSXCOB+5xoHA46kWEu+ccMO8mMRvpN3mvvxsVHG1FkI\n",
+            "MNdECABhaQKBgAd3Mj7cetFmecoaHmkID/RZyhCkabDNhx9jIsV8Y2/2bJzK21YT\n",
+            "SSnWSDh3TRmS3lAgmOnEEE5qxSj7twwN0PI9J22178MtgEAupNlcIbTraDqW8lsd\n",
+            "/DPsrbDVN+WtuqmDfzIiVlZb2C55KYJJEMCGIremR3P4tKBSUROhB0mHAoGAA/py\n",
+            "0xnGG9gIbNIAMIqurCjFQ85lfEcIUGLaM7s1zocrEa+gfE9mjQbfx4nyCthXdzpA\n",
+            "bTWVPzlA1VS1Cbv3qpkUlk5H0NE4Po/Po6CCA0PxjrIzMHxSvvUh9hMHtWNilrcq\n",
+            "bqY0oYJ+2XebQapCK4ekuIZD8+xPGu7798A7UdECgYEAmLwR2CX1hHo2ZEFpI2LZ\n",
+            "iWMElRCHvBStT/4dTPSczxIxpmztQGG8eKc3RYIRPT1Qr8E/kf15Yx05mM8Lco+X\n",
+            "6Ak5F2Alu66gsi2JjVqdCaswvB/wkMCaByFSOdC6hUisNwT3RXc9i+tQuJL3v1Om\n",
+            "b2CcW8xCk6lZU515owH0bXM=\n",
+            "-----END PRIVATE KEY-----\n",
+        )
     }
 }

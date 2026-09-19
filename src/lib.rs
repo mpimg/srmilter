@@ -30,6 +30,10 @@ struct MailInfoStorage {
     // Byte offset into `mail_buffer` where the body starts, i.e. right
     // after the blank-line separator. Used only for DKIM signing.
     header_end: usize,
+    // Has the body been truncated by the `--truncate` feature?
+    // Used by DKIM signer. Note, that combination of DKIM signer and --truncate
+    // is questionable.
+    body_is_truncated: bool,
 }
 
 /// Provides read-only access to a parsed email message.
@@ -493,14 +497,10 @@ fn classify_mail(config: &Config, storage: &MailInfoStorage) -> ClassifyResult {
 /// [`DkimSigner`] is configured. Signing failures are logged (queue-ID
 /// prefixed) and never propagated: a signing bug must never cause mail
 /// loss or bounces, so the mail is still delivered, just unsigned.
-pub(crate) fn dkim_sign(
-    config: &Config,
-    storage: &MailInfoStorage,
-    force_l0: bool,
-) -> Option<Vec<u8>> {
+pub(crate) fn dkim_sign(config: &Config, storage: &MailInfoStorage) -> Option<Vec<u8>> {
     let signer = config.dkim_signer.as_ref()?;
     let body = &storage.mail_buffer[storage.header_end..];
-    match signer.sign(&storage.dkim_header_pairs, body, force_l0) {
+    match signer.sign(&storage.dkim_header_pairs, body, storage.body_is_truncated) {
         Ok(value) => Some(value.into_bytes()),
         Err(e) => {
             eprintln!("{}: DKIM signing failed: {e}", storage.id);
@@ -585,32 +585,45 @@ impl ConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rsa::RsaPrivateKey;
-    use rsa::pkcs8::{EncodePrivateKey, LineEnding};
 
     fn test_dkim_signer() -> DkimSigner {
-        let mut rng = rand::thread_rng();
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap();
-        DkimSigner::from_pkcs8_pem(&pem, "example.com", "sel1").unwrap()
+        let pem = dkim::tests::get_test_private_key_pem();
+        DkimSigner::from_pkcs8_pem(pem, "example.com", "sel1").unwrap()
     }
 
     #[test]
-    fn dkim_sign_declares_l0_only_when_forced() {
+    fn dkim_sign_declares_l_when_truncated() {
         let config = Config::builder().dkim_signer(test_dkim_signer()).build();
-        let storage = MailInfoStorage {
+
+        let mut storage = MailInfoStorage {
             id: "test".to_string(),
-            mail_buffer: b"From: a@example.com\r\n\r\nbody\r\n".to_vec(),
+            mail_buffer: b"From: a@example.com\r\n\r\n".to_vec(),
             dkim_header_pairs: vec![("From".to_string(), b"a@example.com".to_vec())],
-            header_end: 22,
+            header_end: 23,
             ..Default::default()
         };
 
-        let forced = dkim_sign(&config, &storage, true).unwrap();
-        assert!(String::from_utf8(forced).unwrap().contains("l=0;"));
+        let dkim_value = dkim_sign(&config, &storage).unwrap();
+        assert!(!String::from_utf8(dkim_value).unwrap().contains("l="));
 
-        let normal = dkim_sign(&config, &storage, false).unwrap();
-        assert!(!String::from_utf8(normal).unwrap().contains("l=0"));
+        storage.body_is_truncated = true;
+        let dkim_value = dkim_sign(&config, &storage).unwrap();
+        assert!(String::from_utf8(dkim_value).unwrap().contains("l=0; "));
+
+        let mut storage = MailInfoStorage {
+            id: "test".to_string(),
+            mail_buffer: b"From: a@example.com\r\n\r\nbody\r\n".to_vec(),
+            dkim_header_pairs: vec![("From".to_string(), b"a@example.com".to_vec())],
+            header_end: 23,
+            ..Default::default()
+        };
+
+        let dkim_value = dkim_sign(&config, &storage).unwrap();
+        assert!(!String::from_utf8(dkim_value).unwrap().contains("l="));
+
+        storage.body_is_truncated = true;
+        let dkim_value = dkim_sign(&config, &storage).unwrap();
+        assert!(String::from_utf8(dkim_value).unwrap().contains("l=6; "));
     }
 
     #[test]
@@ -629,7 +642,7 @@ mod tests {
         let config = Config::builder().build();
         let storage = MailInfoStorage::default();
         assert!(config.dkim_signer.is_none());
-        assert!(dkim_sign(&config, &storage, false).is_none());
+        assert!(dkim_sign(&config, &storage).is_none());
     }
 
     #[test]
